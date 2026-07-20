@@ -1,0 +1,5 @@
+# Cross-field extension: cohort-conditional FiLM modulation instead of forcing
+# one invariant representation. Ablate this against coral.yaml.
+base: base.yaml
+dg_method: none
+use_cohort_film: true

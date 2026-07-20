@@ -1,0 +1,30 @@
+# Base config. Other configs set `base: base.yaml` and override a few keys.
+seed: 0
+
+# data
+manifest: data/manifest.csv
+image_size: 224
+in_chans: 1            # 1 = grayscale CXR
+num_cohorts: 4         # montgomery, shenzhen, niaid, rsna
+
+# model (backbone-agnostic: swap this string, rerun)
+backbone: mobilenetv3_small_100
+pretrained: true
+drop_rate: 0.2
+use_cohort_film: false
+
+# domain generalization objective: none | coral | dann | irm
+dg_method: none
+dg_weight: 1.0
+
+# uncertainty for deferral: mc_dropout | ensemble
+uncertainty: mc_dropout
+mc_samples: 20
+ensemble_size: 3
+
+# optimization
+epochs: 30
+batch_size: 32
+lr: 0.0003
+weight_decay: 0.0001
+num_workers: 2

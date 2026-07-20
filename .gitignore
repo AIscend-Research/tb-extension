@@ -1,0 +1,25 @@
+# data and outputs (never commit images or checkpoints)
+data/*
+!data/README.md
+runs/
+*.npz
+*.pt
+*.ckpt
+*.csv
+!configs/*.csv
+
+# python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.eggs/
+build/
+dist/
+.venv/
+venv/
+env/
+
+# tooling
+.pytest_cache/
+.ipynb_checkpoints/
+.DS_Store

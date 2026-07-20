@@ -1,0 +1,17 @@
+# Optional. The core pipeline runs without any of these; add them if you want
+# the extra methods and metrics they provide.
+
+# richer uncertainty + selective-classification metrics (AURC, coverage-risk,
+# OOD, deep ensembles, MC-dropout wrappers). Lightning-based.
+torch-uncertainty>=0.2
+
+# post-hoc calibration (temperature/vector/matrix scaling, reliability diagrams).
+# xctb ships a minimal temperature-scaling + ECE implementation already; netcal
+# is here if you want the fuller toolbox.
+netcal>=1.3
+
+# plotting risk-coverage and reliability diagrams for the paper figures
+matplotlib>=3.7
+
+# test runner
+pytest>=7.0

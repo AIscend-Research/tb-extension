@@ -1,0 +1,4 @@
+# Domain-adversarial training (gradient reversal + domain head).
+base: base.yaml
+dg_method: dann
+dg_weight: 0.5
