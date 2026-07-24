@@ -46,11 +46,30 @@ class CXRDataset:
             return Image.fromarray(arr.astype(np.uint8), mode="L")
         return Image.open(path).convert("L")
 
+    def _degrade(self, img, row):
+        """Apply the row's synthetic smartphone degradation, if the manifest
+        carries the `degradation_*` columns (see
+        xctb.data.degradation.build_degradation_manifest). Rows without those
+        columns, or with severity 0 / strategy "none", pass through unchanged.
+        """
+        severity = row.get("degradation_severity", 0.0)
+        strategy = row.get("degradation_strategy", "none")
+        if not severity or strategy == "none":
+            return img
+        from xctb.data.degradation import compose_degradation
+
+        seed = int(row.get("degradation_seed", 0))
+        degraded, _applied = compose_degradation(
+            img, float(severity), rng=np.random.default_rng(seed), strategy=strategy
+        )
+        return degraded
+
     def __getitem__(self, i: int):
         import torch
 
         row = self.manifest.iloc[i]
         img = self._load_image(row["image_path"])
+        img = self._degrade(img, row)
         if self.transform is not None:
             img = self.transform(img)
         label = torch.tensor(int(row["label"]), dtype=torch.long)

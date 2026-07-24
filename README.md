@@ -80,6 +80,7 @@ enough to train comfortably on Kaggle's GPUs.
         splits.py        leave-one-cohort-out + random split, with leakage guards
         dataset.py       torch Dataset over the manifest (grayscale, DICOM-aware)
         transforms.py    image preprocessing, with a per-cohort override hook
+        degradation.py   synthetic smartphone-capture degradation, continuous severity
         cohort_stats.py  quantify the domain shift (brightness/contrast/res)
       models/
         backbones.py     timm feature extractors (mobilenet, efficientnet, ...)
@@ -93,11 +94,14 @@ enough to train comfortably on Kaggle's GPUs.
       eval/
         metrics.py       AUROC, sensitivity, specificity, accuracy
         deferral.py      risk-coverage, AURC, and the gap-recovery metric
+        degradation_uncertainty.py  does uncertainty actually rise with degradation?
       calibration.py     temperature scaling + ECE (numpy, no scipy)
-    scripts/             build_manifest, cohort_stats, train, run_loco, evaluate, smoke_test
+    scripts/             build_manifest, build_degraded_eval, cohort_stats, train,
+                          run_loco, evaluate, smoke_test
     configs/             base.yaml + coral / dann / cohort_film variants
-    tests/               fast tests for the splits and deferral math
-    docs/                DATA.md (sources, licences, the confounding trap), ONBOARDING.md
+    tests/               fast tests for the splits, degradation, and deferral math
+    docs/                DATA.md (sources, licences, the confounding trap),
+                          DEGRADATION.md (pipeline design, open ablation), ONBOARDING.md
 
 The four files under `eval/` and `data/splits.py` are torch-free by design.
 That keeps the tests fast and makes the split-and-deferral methodology reusable
@@ -117,11 +121,21 @@ recovers the whole gap; random uncertainty recovers nothing).
 ## Status
 
 Working and tested: the manifest, the splits with leakage guards, the deferral
-and gap-recovery metrics, temperature-scaling calibration, and the full
-torch-free pipeline. The training loop, backbones, DG losses, and uncertainty
-inference are written and syntax-checked but want a real GPU run to shake out.
-The cross-field extension in `cohort_norm.py` is a working stub with the genuinely
-open problem marked. See `docs/ONBOARDING.md` for who should pick up what.
+and gap-recovery metrics, temperature-scaling calibration, the synthetic
+smartphone-degradation pipeline, and the full torch-free pipeline. The training
+loop, backbones, DG losses, and uncertainty inference are written and
+syntax-checked but want a real GPU run to shake out. The cross-field extension
+in `cohort_norm.py` is a working stub with the genuinely open problem marked.
+See `docs/ONBOARDING.md` for who should pick up what.
+
+Not done yet: the four cohorts are not downloaded (Montgomery/Shenzhen are a
+direct download, NIAID needs a data-use agreement, RSNA needs a Kaggle
+account — see `docs/DATA.md`), so nothing in this repo has run against a real
+image yet, only `synthetic_manifest()` and synthetic test images. The `gan`
+and `rephoto` degradation-comparison strategies in `docs/DEGRADATION.md` are
+unimplemented placeholders, and the degradation-vs-uncertainty correlation
+check has only been exercised against fabricated uncertainty, not a trained
+model.
 
 ## Licence
 

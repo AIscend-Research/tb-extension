@@ -10,6 +10,14 @@ from xctb.data.splits import (
     random_split,
     check_split,
 )
+from xctb.data.degradation import (
+    DEGRADATION_KINDS,
+    DEGRADATION_STRATEGIES,
+    apply_degradation,
+    compose_degradation,
+    severity_to_target_uncertainty,
+    build_degradation_manifest,
+)
 
 __all__ = [
     "COHORTS",
@@ -20,4 +28,10 @@ __all__ = [
     "leave_one_cohort_out",
     "random_split",
     "check_split",
+    "DEGRADATION_KINDS",
+    "DEGRADATION_STRATEGIES",
+    "apply_degradation",
+    "compose_degradation",
+    "severity_to_target_uncertainty",
+    "build_degradation_manifest",
 ]
