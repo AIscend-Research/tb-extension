@@ -30,15 +30,30 @@ them for the algorithm details and copy ideas, not the scaffolding.
 
 ## Phase 2 — data and preprocessing
 
-- Download the cohorts and lay them out per `docs/DATA.md`.
+- Download the cohorts and lay them out per `docs/DATA.md`. **Still manual**:
+  Montgomery/Shenzhen are a direct download, but NIAID needs a click-through
+  data-use agreement and RSNA needs a Kaggle account, so nobody can do this
+  step for you from inside the repo.
 - Run `scripts/build_manifest.py`; confirm the class-balance table and act on the
-  single-class warning (this is where the confounding trap bites).
+  single-class warning (this is where the confounding trap bites). Already
+  wired: `xctb/data/manifest.py::class_balance_table`, exercised by
+  `tests/test_splits.py`.
 - Run `scripts/cohort_stats.py` to get the domain-shift numbers.
+- Synthetic smartphone degradation is done:
+  `xctb/data/degradation.py` (blur, glare, shadow, rotation, compression,
+  resolution, noise, all continuous-severity) plus
+  `scripts/build_degraded_eval.py` to tag a manifest with
+  `degradation_strategy` / `degradation_severity` for the Phase 4
+  accuracy-vs-severity report. Read `docs/DEGRADATION.md` for the design and
+  what is still a placeholder (the `gan` / `rephoto` comparison strategies).
 - Good first issue: if a cohort needs its own preprocessing, add it in
   `xctb/data/transforms.py::per_cohort_transforms` and justify it in DATA.md.
 - Good first issue: build the balanced RSNA-normals + NIAID-positives cohorts if
   you decide to use those sources (loaders already exist in
   `xctb/data/manifest.py`).
+- Good first issue: pick up the `gan` or `rephoto` degradation strategy in
+  `docs/DEGRADATION.md` — that ablation is still the open novelty slot here,
+  not the two implemented strategies.
 
 ## Phase 3 — model development
 
@@ -54,6 +69,12 @@ them for the algorithm details and copy ideas, not the scaffolding.
   deferral policy and metric are in `xctb/eval/deferral.py`. Good first issue:
   add predictive-entropy as an alternative uncertainty and compare its AURC to
   MC-dropout variance.
+- Sanity-check the uncertainty against degradation, not just against error:
+  `xctb/eval/degradation_uncertainty.py::uncertainty_vs_severity` correlates
+  the model's own uncertainty against synthetic degradation severity (the weak
+  label from `xctb/data/degradation.py::severity_to_target_uncertainty`). Run
+  it on a `scripts/build_degraded_eval.py` manifest once you have predictions;
+  see `docs/DEGRADATION.md` for why this replaced a trained confidence head.
 - Efficiency numbers: report params / FLOPs / latency per backbone. Good first
   issue: add a `scripts/profile.py` that prints `backbone.num_parameters()` and
   times a forward pass, so the "edge-deployable" claim is measured.

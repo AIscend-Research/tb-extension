@@ -79,6 +79,22 @@ So:
 The cohort-stats table (median resolution, mean brightness, mean contrast per
 cohort) is the concrete "how different are these machines" figure for the paper.
 
+## Simulating the smartphone-capture gap
+
+These cohorts are clean digital exports, not smartphone photos of printed or
+lightbox films. `scripts/build_degraded_eval.py` tags a manifest with a
+continuous-severity synthetic degradation (blur, glare, shadow, rotation,
+compression, resolution loss) applied on the fly at load time, no extra images
+needed on disk:
+
+    python scripts/build_degraded_eval.py --manifest data/manifest.csv \
+        --out data/degraded_manifest.csv --severities 0,0.25,0.5,0.75,1.0
+
+See `docs/DEGRADATION.md` for the pipeline design, the strategy-comparison
+ablation (what's implemented vs. still a placeholder), and why the
+weak-supervision label ended up as an uncertainty *validation* check rather
+than a training target.
+
 ## Citations to include
 
 - Jaeger et al., "Two public chest X-ray datasets for computer-aided screening
