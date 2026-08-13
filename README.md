@@ -138,6 +138,14 @@ python scripts/audit_fiducials.py --manifest data/processed/manifest.csv --out o
 python scripts/validate_physics.py --quick     # the experiments that could falsify the bound
 ```
 
+For the paper's figures — the capture-chain schematic, the sign-convention
+explainer, annotated radiographs, the TB finding atlas, and the detectability
+strip that shows a lesion vanishing as it crosses the measured floor:
+
+```bash
+python scripts/make_figures.py --out outputs/figures --manifest data/processed/manifest.csv
+```
+
 `docs/PHYSICS.md` is the reference. Notebooks `05`-`08` walk it on Kaggle.
 
 Overrides are `key.subkey=value` on the command line, e.g.
@@ -173,7 +181,7 @@ scripts/            download_data, build_manifest, clinic_stats, smoke_test,
                     train, evaluate, train_ensemble, benchmark_efficiency,
                     evaluate_adversarial_robustness, ablate_degradation,
                     run_experiments, audit_fiducials, validate_physics,
-                    physics_certificates
+                    physics_certificates, make_figures
 src/tbtrust/
   data/             degradation pipeline, manifest + provenance, LOCO splits,
                     torch Dataset, per-clinic shift statistics
@@ -190,7 +198,9 @@ src/tbtrust/
                     detection, slanted-edge MTF, beam-stop glare, two-point
                     densitometry, blind inversion to optical density, the density
                     resolution floor, the certificate, triage, channel capacity,
-                    and the validation experiments that could falsify all of it
+                    the validation experiments that could falsify all of it, and
+                    the paper's figures -- schematics, annotated radiographs and
+                    image strips rather than plots
                     (numpy + Pillow only -- no torch, no scipy, no OpenCV)
   utils/            seeding, io
 tests/              pytest smoke tests + domain-generalization tests

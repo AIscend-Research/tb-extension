@@ -190,6 +190,35 @@ fiducials back on and gives a controlled experiment with ground truth.
 
 ---
 
+## 4b. Figures
+
+`physics/figures.py` produces the paper's visuals — diagrams and annotated images, not plots.
+`python scripts/make_figures.py --out outputs/figures [--manifest ...]` renders all of them.
+
+| figure | what it is for |
+|---|---|
+| `capture_chain_diagram` | the method figure: the channel, and where each unknown enters |
+| `sign_convention_panel` | why lead is the *bright* anchor. Put it early — the method reads backwards without it |
+| `fiducial_anatomy` | a real radiograph with the three targets called out, plus the coverage grade |
+| `finding_atlas` | stylised chest, findings at true relative size and typical location, shaded by verdict |
+| `detectability_strip` | **the one that matters**: the same lesion at multiples of the measured floor |
+| `inversion_panels` | photo → measured veil → veil/signal → recovered density |
+| `certificate_card` | the verdict as an object a clinician could be handed |
+| `retake_instruction` | the glare field with an arrow saying which way to move |
+| `radiograph_gallery`, `degradation_ladder` | real dataset images; what "severity 0.75" actually looks like |
+
+Two are worth putting earliest. `sign_convention_panel`, because everything downstream depends
+on the reader having the film's negative sense straight. And `detectability_strip`, because it
+is the only figure that lets someone check the central claim with their own eyes: the floor is
+computed blind from the photograph, lesions are then inserted at fractions and multiples of it,
+and below 1× the lesion is invisible in the recovered image — not merely hard to see.
+
+One honest note on that strip. The lesion site is chosen to be locally *flat*, the way a
+contrast-detail phantom is. A site on a rib edge sits on an anatomical gradient an order of
+magnitude larger than the lesion, so any display window wide enough to show the anatomy hides
+the lesion at every contrast. That choice affects only the visual comparison; the quantitative
+version in `validate.detectability_experiment` measures d′ against the noise and is unaffected.
+
 ## 5. Running it
 
 ```bash

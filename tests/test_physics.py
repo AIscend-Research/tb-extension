@@ -526,3 +526,94 @@ def test_validation_harness_runs_small():
                                      size=160, seed=0)
     assert det.predicted_floor > 0
     assert np.isfinite(det.floor_lung_median)
+
+
+# --------------------------------------------------------------------------- #
+# figures
+# --------------------------------------------------------------------------- #
+
+
+def _agg():
+    import matplotlib
+
+    matplotlib.use("Agg")
+
+
+def test_schematic_figures_render():
+    """The two diagrams that need no data. Pure drawing code, so the only failure
+    mode is an exception -- but that is exactly what a refactor of the style
+    constants would cause, silently, right before a submission deadline."""
+    _agg()
+    from tbtrust.physics import figures as F
+
+    for fn in (F.capture_chain_diagram, F.sign_convention_panel, F.finding_atlas):
+        fig = fn()
+        assert fig.get_axes(), f"{fn.__name__} produced no axes"
+
+
+def test_image_figures_render(scene):
+    _agg()
+    from tbtrust.physics import figures as F
+    from tbtrust.physics.triage import triage
+
+    photo, truth = _shot(scene, 0.45)
+    cal = invert(photo)
+    cert = certify(cal)
+    dec = triage(cert, cal, model_confidence=0.8)
+
+    assert F.fiducial_anatomy(photo, cal.fiducials).get_axes()
+    assert F.inversion_panels(photo, cal, truth).get_axes()
+    assert F.certificate_card(cert, cal, dec).get_axes()
+    assert F.retake_instruction(cal, dec).get_axes()
+    assert F.finding_atlas(cert, cal.px_per_mm).get_axes()
+
+
+def test_finding_atlas_places_markers_inside_the_lungs():
+    """Anatomy is the point of that figure. Markers scattered over the mediastinum
+    or outside the ribcage make it worse than no figure at all."""
+    from tbtrust.physics import figures as F
+
+    path_r, path_l = F._lung_paths()
+    for key, (x, y, kind) in {
+        "infiltrate": (0.290, 0.735, "fuzzy"),
+        "cavity_wall": (0.690, 0.755, "ring"),
+        "small_nodule": (0.720, 0.585, "dot"),
+        "consolidation": (0.300, 0.400, "fuzzy"),
+    }.items():
+        assert path_r.contains_point((x, y)) or path_l.contains_point((x, y)), key
+        del kind
+
+
+def test_detectability_strip_renders(scene):
+    _agg()
+    from tbtrust.physics import figures as F
+    from tbtrust.physics.film import sample_params
+
+    base, ft = scene
+    params = sample_params(0.4, np.random.default_rng(3))
+    photo, _ = capture(base, params, fiducial_truth=ft, rng=np.random.default_rng(4))
+    cal = invert(photo)
+    fig = F.detectability_strip(base, params, get("infiltrate"), cal=cal,
+                                fiducial_truth=ft, multiples=(0.5, 1.0, 2.0))
+    # two rows x three contrasts
+    assert len(fig.get_axes()) == 6
+
+
+def test_gallery_accepts_pandas_series_with_a_gapped_index(tmp_path):
+    """A sampled DataFrame has a non-reset index, and `labels[i]` would then index
+    by label rather than position and raise KeyError. Every real caller builds the
+    inputs exactly that way."""
+    _agg()
+    import pandas as pd
+    from PIL import Image
+
+    from tbtrust.physics import figures as F
+
+    paths = []
+    for i in range(4):
+        p = tmp_path / f"x{i}.png"
+        Image.fromarray((np.random.default_rng(i).random((32, 32)) * 255).astype(np.uint8)).save(p)
+        paths.append(str(p))
+    df = pd.DataFrame({"path": paths, "label": [0, 1, 0, 1], "clinic": ["a", "b", "a", "b"]})
+    sub = df.sample(3, random_state=0)          # gapped index on purpose
+    assert F.radiograph_gallery(sub["path"], sub["label"], sub["clinic"], ncols=3).get_axes()

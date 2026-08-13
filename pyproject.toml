@@ -85,6 +85,10 @@ ignore = [
 ]
 
 [tool.ruff.lint.per-file-ignores]
+# physics/figures.py renders labels for humans: "2.4×", "sigma" as σ, "gamma" as γ.
+# RUF001 flags these as ambiguous unicode, which is the right call inside
+# identifiers and the wrong one inside a matplotlib label.
+"src/tbtrust/physics/figures.py" = ["RUF001"]
 # Scripts insert the repo's src/ on sys.path before importing tbtrust, so their
 # imports legitimately do not sit at the top of the file.
 "scripts/*.py" = ["E402"]
