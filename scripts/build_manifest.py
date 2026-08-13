@@ -1,112 +1,61 @@
 #!/usr/bin/env python3
-"""Scan the data directory and write data/manifest.csv.
+"""Scan data/raw/ into data/processed/manifest.csv and report class balance.
 
-Expected layout (only the cohorts you actually have need to be present):
+Assumes images live somewhere under data/raw/ and that either:
+  * the aggregated Kaggle layout is used (folders named Normal/ and Tuberculosis/), or
+  * the raw NLM layout is used (filenames MCUCXR_*_0/1, CHNCXR_*_0/1).
 
-    data/montgomery/CXR_png/MCUCXR_####_X.png
-    data/shenzhen/CXR_png/CHNCXR_####_X.png
-    data/niaid/labels.csv            columns: image_path,label   (paths under data/niaid/)
-    data/rsna/stage_2_train_labels.csv + data/rsna/stage_2_train_images/*.dcm
-
-See docs/DATA.md for where each cohort comes from and how to arrange it.
-
-    python scripts/build_manifest.py --data-root data
-    python scripts/build_manifest.py --synthetic       # fake manifest, no images needed
+Adjust `label_from_dir` / the provenance rules in tbtrust.data.manifest to match
+however you actually laid things out. This script is deliberately thin.
 """
 
+from __future__ import annotations
+
 import argparse
-import os
-import sys
 from pathlib import Path
 
-sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+import pandas as pd
 
-from xctb.data.manifest import (
-    build_manifest,
-    from_nlm_filenames,
-    from_label_csv,
-    synthetic_manifest,
-    class_balance_table,
-)
+from tbtrust.data import manifest as M
 
 
-def collect_sources(data_root: str):
-    sources = []
-    mont = os.path.join(data_root, "montgomery", "CXR_png")
-    if os.path.isdir(mont):
-        sources.append(from_nlm_filenames(mont, "montgomery"))
-        print(f"  found montgomery under {mont}")
-
-    shen = os.path.join(data_root, "shenzhen", "CXR_png")
-    if os.path.isdir(shen):
-        sources.append(from_nlm_filenames(shen, "shenzhen"))
-        print(f"  found shenzhen under {shen}")
-
-    niaid_csv = os.path.join(data_root, "niaid", "labels.csv")
-    if os.path.isfile(niaid_csv):
-        sources.append(
-            from_label_csv(
-                niaid_csv,
-                image_root=os.path.join(data_root, "niaid"),
-                cohort="niaid",
-                path_col="image_path",
-                label_col="label",
-                positive_value=1,
-            )
-        )
-        print(f"  found niaid from {niaid_csv}")
-
-    rsna_csv = os.path.join(data_root, "rsna", "stage_2_train_labels.csv")
-    if os.path.isfile(rsna_csv):
-        sources.append(
-            from_label_csv(
-                rsna_csv,
-                image_root=os.path.join(data_root, "rsna", "stage_2_train_images"),
-                cohort="rsna",
-                path_col="patientId",
-                label_col="Target",
-                positive_value=1,
-                path_suffix=".dcm",
-            )
-        )
-        print(f"  found rsna from {rsna_csv}")
-    return sources
+def label_from_nlm_filename(path: str) -> int:
+    stem = Path(path).stem
+    if stem.endswith("_1"):
+        return 1
+    if stem.endswith("_0"):
+        return 0
+    return -1
 
 
-def main():
-    ap = argparse.ArgumentParser()
-    ap.add_argument("--data-root", default="data")
-    ap.add_argument("--out", default="data/manifest.csv")
-    ap.add_argument("--synthetic", action="store_true", help="write a fake manifest for testing")
+def main() -> None:
+    ap = argparse.ArgumentParser(description=__doc__)
+    ap.add_argument("--raw", default="data/raw")
+    ap.add_argument("--out", default="data/processed/manifest.csv")
+    ap.add_argument("--layout", choices=["kaggle", "nlm", "auto"], default="auto")
     args = ap.parse_args()
 
-    if args.synthetic:
-        print("Building a SYNTHETIC manifest (no real images).")
-        manifest = synthetic_manifest()
+    if args.layout in ("kaggle", "auto"):
+        df = M.scan_directory(args.raw, label_from_dir={"Tuberculosis": 1, "Normal": 0})
     else:
-        print(f"Scanning {args.data_root} ...")
-        sources = collect_sources(args.data_root)
-        if not sources:
-            sys.exit(
-                "No cohorts found. Check --data-root and the layout in docs/DATA.md, "
-                "or use --synthetic to test the pipeline without images."
-            )
-        manifest = build_manifest(sources)
+        df = M.scan_directory(args.raw)
 
-    os.makedirs(os.path.dirname(args.out) or ".", exist_ok=True)
-    manifest.to_csv(args.out, index=False)
-    print(f"\nWrote {len(manifest)} rows to {args.out}\n")
+    # backfill labels from NLM filenames where the folder map missed them
+    mask = df["label"] < 0
+    if mask.any():
+        df.loc[mask, "label"] = df.loc[mask, "path"].map(label_from_nlm_filename)
 
-    table = class_balance_table(manifest)
-    print(table.to_string(index=False))
-    if table["single_class"].any():
-        bad = table.loc[table["single_class"], "cohort"].tolist()
-        print(
-            f"\nWARNING: single-class cohort(s): {bad}. "
-            "Leave-one-cohort-out on these is degenerate (no both-class test, and "
-            "cohort predicts label). Read the confounding note in docs/DATA.md before "
-            "including them as held-out folds."
-        )
+    unlabeled = int((df["label"] < 0).sum())
+    if unlabeled:
+        print(f"WARNING: {unlabeled} images have no label (-1). Fix the rules or add a metadata join.")
+
+    M.save(df, args.out)
+    print(f"Wrote {len(df)} rows -> {args.out}\n")
+    print("Class balance per clinic:")
+    with pd.option_context("display.max_rows", None):
+        print(M.class_balance_report(df))
+    print("\nReminder: NIAID is TB-only, RSNA normal-only, Belarus TB-only. "
+          "Use Montgomery/Shenzhen as your two-class LOCO holdouts.")
 
 
 if __name__ == "__main__":

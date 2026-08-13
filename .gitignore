@@ -1,25 +1,29 @@
-# data and outputs (never commit images or checkpoints)
-data/*
-!data/README.md
+# data + model artifacts (never commit these)
+data/raw/*
+data/processed/*
+data/real_recapture/*
+!data/raw/.gitkeep
+!data/processed/.gitkeep
+!data/real_recapture/.gitkeep
+!data/real_recapture/README.md
+!data/real_recapture/manifest_template.csv
+outputs/
 runs/
-*.npz
-*.pt
 *.ckpt
-*.csv
-!configs/*.csv
+*.pth
+*.pt
 
 # python
 __pycache__/
 *.py[cod]
-*.egg-info/
-.eggs/
-build/
-dist/
 .venv/
 venv/
 env/
-
-# tooling
+*.egg-info/
 .pytest_cache/
+.ruff_cache/
 .ipynb_checkpoints/
-.DS_Store
+
+# secrets
+kaggle.json
+.env
