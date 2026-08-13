@@ -123,6 +123,37 @@ calibration heatmap, plus forecast-verification metrics per clinic -- the manual
 bash loop below only trains+evaluates each fold in isolation, this ties them
 together into the actual cross-site comparison.
 
+**The physics track, cutting across Phases 2-4.** `physics/`, `docs/PHYSICS.md`,
+`eval/physics_deferral.py`, notebooks `05`-`08`. This is the second, independent
+uncertainty track and it shares almost no code with the learned one, so it can be
+picked up in parallel by someone who wants a self-contained piece.
+
+The idea in one line: a chest film carries its own calibration targets -- a lead
+marker at known base+fog density, a direct-exposure region that is optically black,
+a collimation border that is a hard step edge -- so the phone's tone curve, PSF and
+veiling glare can all be *measured* from a single photograph rather than learned.
+That gives a per-pixel **density resolution floor**, and comparing it to a TB
+finding's contrast gives a certificate that the information is or is not in the
+image, in units of optical density, with no labels and no network.
+
+Read the modules in dependency order: `density.py` (the sign convention, which the
+project brief has inverted -- start here), then `film.py` (the forward model, which
+is what makes everything checkable), `fiducials.py`, then `psf.py` / `glare.py` /
+`tone.py`, then `invert.py`, `floor.py`, `certificate.py`.
+
+Three things a newcomer should know before changing anything:
+
+* **Run `scripts/audit_fiducials.py` first.** The whole track assumes the public
+  archives kept the fiducials. That is an empirical question, it is cheap to
+  answer, and the answer bounds every claim.
+* **`scripts/validate_physics.py` is the arbiter, not the tests.** The tests pin
+  ordering properties and known regressions; the validation script measures whether
+  the bound actually predicts an optimal detector's threshold. If you change an
+  estimator, that ratio is the number that says whether you improved it.
+* **The finding contrasts in `findings.py` are nominal placeholders** marked
+  `source="NOMINAL"`. Relative results are sound; absolute verdicts inherit their
+  uncertainty. Replacing that table is a genuine, self-contained contribution.
+
 **Phase 5, writing.** The results tables and figures come straight out of
 `eval/run.py` (metrics.json + the reliability/deferral figure). Write the
 limitations honestly: everything is synthetic degradation with no real phone

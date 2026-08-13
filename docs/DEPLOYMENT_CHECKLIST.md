@@ -43,7 +43,36 @@ explicit rather than implied.
       are different actions with different costs. Degradation-driven uncertainty
       should trigger a retake; genuine diagnostic ambiguity should trigger a
       referral. `eval/conformal.py` separates these as `no_plausible_label` vs.
-      `ambiguous`.
+      `ambiguous`, and `physics/triage.py` decides between them from the measured
+      capture channel rather than from a confidence score — a high density floor
+      caused by localized glare is operator-fixable, an adequate floor with a
+      still-uncertain model is not.
+- [ ] **The retake instruction says what to change.** "The image is bad" wastes
+      the retake. `physics/triage.py` emits the specific fix — which way the glare
+      is, whether the blur is shake or defocus, whether the exposure is crushed —
+      from `glare.hotspot` and `psf.PSFEstimate.anisotropy`.
+
+## B2. Two cheap additions to the lightbox that are worth more than any model change
+
+Both turn an assumption in `physics/` into a measurement, and both cost almost nothing.
+
+- [ ] **Tape a small step wedge beside the film.** A few pence of exposed,
+      processed film with two or three known optical densities. With only the two
+      anchors the film itself provides, the tone curve's exponent γ has to be taken
+      from an sRGB prior and its uncertainty propagated into every absolute density.
+      A third distinct density breaks that degeneracy and `physics/tone.fit_tone`
+      fits γ properly. This is the single weakest assumption in the physics track
+      and the cheapest one to remove.
+- [ ] **Put a ruler, or any object of known length, in the frame.** `px_per_mm` is
+      otherwise inferred from the detected collimation field against a standard
+      cassette diagonal, at roughly ±20%. That error propagates into every
+      finding's spatial frequency and so into the density floor. A ruler settles it
+      exactly; pass the measured value to `physics.invert(px_per_mm=...)`.
+- [ ] **Train operators to photograph the *whole sheet*.** Including the pale
+      unexposed margin, the L/R lead marker and the dark direct-exposure rim. Those
+      three regions are the entire basis of the physics track, and a tight crop to
+      the lung fields destroys all of them — after which the certificate can only
+      abstain. `scripts/audit_fiducials.py` measures how often this is being done.
 - [ ] **A retake actually helps.** If the failure is a cracked lightbox or a
       broken camera, retaking produces another bad photo. Cap retakes and escalate.
 - [ ] **Deferral is not silently disabled** when the queue gets long. This is the

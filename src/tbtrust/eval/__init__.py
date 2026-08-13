@@ -7,6 +7,7 @@ from . import (
     degradation_uncertainty,
     forecast_verification,
     metrics,
+    physics_deferral,
     sequential_deferral,
 )
 
@@ -19,5 +20,6 @@ __all__ = [
     "degradation_uncertainty",
     "forecast_verification",
     "metrics",
+    "physics_deferral",
     "sequential_deferral",
 ]

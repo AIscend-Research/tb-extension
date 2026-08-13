@@ -167,6 +167,53 @@ def test_conformal(rng):
         f"{rep['coverage_shortfall_vs_target']:.3f})")
 
 
+def test_physics(rng):
+    """Photograph a synthetic film, invert it blind, and certify it.
+
+    The physics track has no third-party dependency and no torch requirement, so
+    it belongs in the torch-free core of the smoke test. The assertions are the
+    ordering properties that must hold whatever the nominal finding contrasts in
+    `physics/findings.py` are set to -- a worse capture must produce a higher
+    floor and a smaller margin. `scripts/validate_physics.py` is the real
+    quantitative check.
+    """
+    from tbtrust.physics import certify
+    from tbtrust.physics.film import capture, sample_params, synthetic_chest_density
+    from tbtrust.physics.findings import get
+    from tbtrust.physics.floor import density_floor
+    from tbtrust.physics.invert import invert
+    from tbtrust.physics.triage import triage
+
+    base, ftruth = synthetic_chest_density(size=224, rng=rng)
+    results = []
+    for severity in (0.0, 0.8):
+        # Same parameter-sampler seed for both conditions, so the two captures are
+        # paired and differ only through the severity dial. Drawing independently
+        # lets an unlucky pair of full-well values invert the comparison, and a
+        # smoke test that fails one run in five teaches people to ignore it.
+        params = sample_params(severity, np.random.default_rng(17))
+        photo, truth = capture(base, params, fiducial_truth=ftruth,
+                               rng=np.random.default_rng(23))
+        cal = invert(photo)
+        cert = certify(cal)
+        floor = float(np.median(density_floor(cal, get("infiltrate")).floor[cal.lung_field_mask()]))
+        results.append((cal, cert, floor, truth))
+
+    (cal0, cert0, floor0, truth0), (cal1, cert1, floor1, _) = results
+    assert cal0.fiducials.has_beamstop, "no optical beam stop found on a clean synthetic film"
+    assert cal0.psf.method == "slanted_edge", f"PSF fell back to {cal0.psf.method}"
+    rel = abs(cal0.psf.sigma - truth0.psf_sigma_effective) / max(truth0.psf_sigma_effective, 1e-6)
+    assert rel < 0.8, f"PSF recovery off by {rel:.0%}"
+    assert floor1 > floor0, f"floor did not rise with degradation ({floor0:.4f} -> {floor1:.4f})"
+    assert cert1.margin_db < cert0.margin_db, "certificate margin did not fall with degradation"
+
+    decision = triage(cert1, cal1, model_confidence=0.9)
+    assert decision.instruction and decision.action.value in ("report", "retake", "refer")
+    _ok(f"physics: PSF {cal0.psf.sigma:.2f}px (true {truth0.psf_sigma_effective:.2f}), "
+        f"floor dD {floor0:.4f}->{floor1:.4f}, margin {cert0.margin_db:+.1f}->{cert1.margin_db:+.1f} dB, "
+        f"triage='{decision.action.value}'")
+
+
 def test_torch_optional(rng):
     try:
         import torch
@@ -193,6 +240,7 @@ def main() -> int:
         test_manifest_and_splits(rng)
         test_eval_metrics(rng)
         test_conformal(rng)
+        test_physics(rng)
         test_torch_optional(rng)
     except AssertionError as e:
         print(f"  FAIL  {e}")

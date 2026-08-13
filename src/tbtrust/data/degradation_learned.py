@@ -35,17 +35,73 @@ from dataclasses import dataclass
 
 import numpy as np
 
+TORCH_AVAILABLE = True
 try:
     import torch
     import torch.nn as nn
     import torch.nn.functional as F
 except ImportError:  # pragma: no cover
-    torch = None
-    nn = None
+    TORCH_AVAILABLE = False
+    F = None
+
+    class _NoTorchTop:
+        """Enough of `torch` for the decorators evaluated at import time.
+
+        `@torch.no_grad()` sits in a class body, so it runs on import just as the
+        `nn.Module` base classes do. It only has to return something callable that
+        leaves the function alone -- the function itself can never run without
+        torch, because `_require_torch` stops construction first.
+        """
+
+        @staticmethod
+        def no_grad():
+            def _identity(fn):
+                return fn
+
+            return _identity
+
+        def __getattr__(self, name):
+            raise ImportError(
+                f"torch is not installed, so torch.{name} is unavailable. "
+                "Install it with `pip install -e .` to use the learned degrader."
+            )
+
+    torch = _NoTorchTop()
+
+    class _NoTorch:
+        """Stand-in so this module still *imports* without torch.
+
+        The `try/except` above and `_require_torch` below both intend torch to be
+        optional at import time -- `tbtrust.data.__init__` imports this module
+        unconditionally, so anything that touches the package (the degradation
+        pipeline, the manifest, the physics track, the torch-free smoke test) would
+        otherwise die on a machine without torch. Setting `nn = None` did not
+        achieve that: `class ResBlock(nn.Module)` is evaluated at import, so it
+        raised `AttributeError: 'NoneType' object has no attribute 'Module'`
+        before any of the guards could fire.
+
+        Every other `nn.*` reference in this file is inside `__init__` or
+        `forward`, so exposing a plain `object` as `Module` is enough to let the
+        class statements execute; instantiating one still fails, loudly and with a
+        useful message, via `_require_torch`.
+        """
+
+        Module = object
+
+        def __getattr__(self, name):
+            raise ImportError(
+                f"torch is not installed, so nn.{name} is unavailable. "
+                "Install it with `pip install -e .` to use the learned degrader."
+            )
+
+    nn = _NoTorch()
 
 
 def _require_torch():
-    if torch is None:
+    # Checks the flag, not `torch is None`: the import fallback substitutes stub
+    # objects so the class statements and decorators in this module can still be
+    # evaluated, which means `torch` is never None any more.
+    if not TORCH_AVAILABLE:
         raise ImportError("degradation_learned needs torch. `pip install -e .`")
 
 

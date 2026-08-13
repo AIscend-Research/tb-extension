@@ -110,6 +110,13 @@ def run_notebooks(repo: Path, data: Path, work: Path) -> list[tuple[str, str]]:
         "TBTRUST_WORK": str(work),
         "MPLBACKEND": "Agg",            # no display on a CI runner
         "PYTHONPATH": str(repo / "src"),
+        # The physics notebooks default to a realistic 1024 px working resolution,
+        # which is right for a real run and far too slow for CI at ~2 s per image.
+        # Shrinking it changes what the certificate *concludes* -- a 2 mm nodule is
+        # sub-pixel at 256 -- but this harness is testing that the code runs against
+        # the current API, not that the verdicts are meaningful.
+        "TBTRUST_PHYSICS_SIZE": "256",
+        "TBTRUST_PHYSICS_N": "8",
     }
     saved = os.environ.copy()
     os.environ.update(env_overrides)

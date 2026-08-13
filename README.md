@@ -78,6 +78,29 @@ No accuracy number in this repo has been produced by a real training run yet.
   `eval/adversarial_degradation.py`): params/MACs/CPU latency for every
   architecture, and a worst-of-N-query black-box degradation search that checks
   whether predicted uncertainty actually rises on the images it makes harder.
+- **Physics-derived uncertainty** (`physics/`, `docs/PHYSICS.md`): a second,
+  independent uncertainty track that *measures* the capture channel instead of
+  learning it. Every chest film carries its own calibration targets — a lead L/R
+  marker at known base+fog density, a direct-exposure region at maximum density
+  that is optically black, and a collimation border that is a physically hard
+  step edge. Those pin the three unknowns in a phone photograph of the film (its
+  tone curve, its point-spread function, and its veiling glare) with no reference
+  shot and no training data, which yields a per-pixel **density resolution
+  floor**: the smallest optical-density difference the photograph could still
+  carry. Compare it against a TB finding's characteristic contrast and you get a
+  **certificate of insufficiency** — not "the model is unsure" but *the
+  information is not in the image*, in units of optical density, computable
+  without labels, and falsifiable. `physics/validate.py` falsifies it: an optimal
+  matched filter's empirical detectability threshold lands within about a factor
+  of two of the predicted floor, conservative on the median. That buys three
+  things a confidence score cannot — aleatoric uncertainty immune to the "you
+  just trained a blur detector" critique, a principled retake-vs-refer split with
+  an actionable instruction (`physics/triage.py`), and a Shannon framing that is
+  arithmetic rather than analogy (`physics/channel.py`).
+  `eval/physics_deferral.py` puts the certificate on the same axis as the learned
+  signals so they can be compared head to head. **The load-bearing assumption is
+  that the fiducials survived the archive's cropping; run
+  `scripts/audit_fiducials.py` before believing any of it.**
 - A **smoke test** that verifies all of the above with no data and no GPU.
 
 ## Quickstart
@@ -106,6 +129,16 @@ python scripts/build_manifest.py --raw data/raw --out data/processed/manifest.cs
 tbtrust-train --config configs/loco_montgomery.yaml
 tbtrust-eval  --config configs/loco_montgomery.yaml --checkpoint outputs/montgomery/best.ckpt
 ```
+
+For the physics track, start with the coverage audit — it decides what the rest
+of that track can claim, and it needs no model and no GPU:
+
+```bash
+python scripts/audit_fiducials.py --manifest data/processed/manifest.csv --out outputs/fiducial_audit
+python scripts/validate_physics.py --quick     # the experiments that could falsify the bound
+```
+
+`docs/PHYSICS.md` is the reference. Notebooks `05`-`08` walk it on Kaggle.
 
 Overrides are `key.subkey=value` on the command line, e.g.
 `tbtrust-train --config configs/loco_montgomery.yaml model.backbone=resnet50 train.epochs=30`.
@@ -139,7 +172,8 @@ configs/            yaml experiments (default.yaml + one file per run)
 scripts/            download_data, build_manifest, clinic_stats, smoke_test,
                     train, evaluate, train_ensemble, benchmark_efficiency,
                     evaluate_adversarial_robustness, ablate_degradation,
-                    run_experiments
+                    run_experiments, audit_fiducials, validate_physics,
+                    physics_certificates
 src/tbtrust/
   data/             degradation pipeline, manifest + provenance, LOCO splits,
                     torch Dataset, per-clinic shift statistics
@@ -150,7 +184,14 @@ src/tbtrust/
                     with the DG penalty layered on top)
   eval/             calibration, conformal, deferral, sequential/CUSUM deferral,
                     adversarial degradation, cross-site, forecast verification,
-                    degradation-vs-uncertainty correlation, metrics, eval CLI
+                    degradation-vs-uncertainty correlation, physics-gated deferral,
+                    metrics, eval CLI
+  physics/          the measured-channel track: film forward model, fiducial
+                    detection, slanted-edge MTF, beam-stop glare, two-point
+                    densitometry, blind inversion to optical density, the density
+                    resolution floor, the certificate, triage, channel capacity,
+                    and the validation experiments that could falsify all of it
+                    (numpy + Pillow only -- no torch, no scipy, no OpenCV)
   utils/            seeding, io
 tests/              pytest smoke tests + domain-generalization tests
 data/               raw/, processed/, and real_recapture/ (all gitignored except real_recapture/README.md)
