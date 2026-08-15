@@ -1,4 +1,0 @@
-# Deep CORAL feature alignment across cohorts.
-base: base.yaml
-dg_method: coral
-dg_weight: 1.0
