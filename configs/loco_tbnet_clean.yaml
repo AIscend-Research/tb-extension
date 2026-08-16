@@ -1,0 +1,60 @@
+# Cross-site baseline: leave-one-clinic-out, no robustness training, no uncertainty.
+#
+# The deployment number, and the thing configs/tbnet_random_clean.yaml exists to
+# be subtracted from. Everything except the split is held identical to that
+# in-distribution reference -- same network, same epochs, same lr, degradation
+# still off, uncertainty head still off -- so the difference between the two runs
+# is attributable to the split and not to the training regime.
+#
+#     gap = reference test accuracy (random split) - LOCO test accuracy
+#
+# `eval/crosssite.generalization_gap` computes exactly that, given a per-clinic
+# table and the reference accuracy.
+#
+# Two folds, both two-class. This file holds Montgomery out; run the other with
+#     python scripts/train.py --config configs/loco_tbnet_clean.yaml \
+#         data.holdout_clinic=shenzhen
+#
+# READ THIS BEFORE QUOTING THE GAP. The manifest has two clinics, so leaving one
+# out means training on exactly one, and the two folds are wildly unequal in
+# training-set size:
+#
+#     holdout montgomery -> trains on shenzhen, ~563 images
+#     holdout shenzhen   -> trains on montgomery, ~117 images
+#
+# The second fold therefore confounds domain shift with a 5x smaller training
+# set, and its gap is an upper bound on the domain-shift effect rather than a
+# measurement of it. The Montgomery-holdout fold is the cleaner of the two, since
+# its training-set size is close to the reference run's ~560. Adding a third
+# clinic (NIAID/RSNA/Belarus are single-class; see docs/DATA.md) is what would
+# separate the two effects properly.
+data:
+  split_mode: loco
+  holdout_clinic: montgomery
+  val_frac: 0.15
+
+# Off, on purpose: this is the *baseline* gap, the one robustness training has to
+# beat. Training through the smartphone degradation pipeline is a separate arm.
+degradation:
+  train_low: 0.0
+  train_high: 0.0
+  val_fixed: 0.0
+
+model:
+  arch: tbnet
+  dropout: 0.3
+  with_uncertainty_head: false
+
+# No domain generalization either -- that is the arm this baseline is measured
+# against (configs/loco_montgomery_coral.yaml and friends).
+dg:
+  method: none
+
+train:
+  epochs: 40
+  lr: 1.0e-3
+
+eval:
+  severity_sweep: [0.0, 0.25, 0.5, 0.75, 1.0]
+  primary_severity: 0.0
+  uncertainty: [confidence, mc_dropout]
