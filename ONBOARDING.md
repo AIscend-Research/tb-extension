@@ -150,9 +150,14 @@ Three things a newcomer should know before changing anything:
   ordering properties and known regressions; the validation script measures whether
   the bound actually predicts an optimal detector's threshold. If you change an
   estimator, that ratio is the number that says whether you improved it.
-* **The finding contrasts in `findings.py` are nominal placeholders** marked
-  `source="NOMINAL"`. Relative results are sound; absolute verdicts inherit their
-  uncertainty. Replacing that table is a genuine, self-contained contribution.
+* **The finding contrasts in `findings.py` are derived, not measured** — marked
+  `source="DERIVED-SLAB-v1"` and computed from NIST/ICRU constants through a
+  Beer-Lambert slab composed with the film curve (see that module's docstring).
+  Relative results are sound; absolute verdicts inherit a ≈50–70% relative error
+  bar, and the equipment constants move every finding together. Measuring the
+  table on a contrast-detail phantom, and re-running the resolution sweep in
+  `docs/PHYSICS.md` §3 against the derived values, are both genuine
+  self-contained contributions.
 
 **Phase 5, writing.** The results tables and figures come straight out of
 `eval/run.py` (metrics.json + the reliability/deferral figure). Write the

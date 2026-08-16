@@ -196,7 +196,15 @@ the one genuinely resolution-sensitive finding here (27%→63% between 320px and
 consistent with being the smallest cited size in the table (3.4mm, see `findings.py`).
 `miliary_nodule` never reaches "detectable" at any resolution tested, and only barely reaches
 "marginal" (3%) at 1536px — at severity 0.5, phone resolution alone does not rescue it under the
-current placeholder `delta_d`.
+`delta_d` in force when the sweep ran.
+
+> **Stale as of 2026-08-16.** This table was produced under the old NOMINAL `delta_d` values and
+> has *not* been re-run against the derived ones (limitation 2 below). The derivation moves every
+> contrast: `cavity_wall` drops hardest, 0.220 → 0.040, because 3.4mm of wall is very little path,
+> and `miliary_nodule` 0.030 → 0.018, `infiltrate` 0.090 → 0.066, `consolidation` 0.350 → 0.398.
+> Read the P(detectable) numbers above as invalid in level; the *shape* of the result — which
+> findings are resolution-limited versus contrast-limited — depends on size, not contrast, and
+> survives. Re-running the sweep is the first compute job to queue.
 
 **Caveats, because this is preliminary, not a publication figure:** n=30 per point, one severity
 level, no repeat-seed noise estimate — the apparent dip at 1536px for `cavity_wall` and
@@ -216,10 +224,19 @@ and a severity sweep, not a single point.
    the fact that nothing on a developed sheet is clearer than base+fog, so any excess is
    unambiguously stray light. A *dimmer* central reflection is under-reported and the
    certificate is optimistic there. **This is the leading known bias.**
-2. **The finding contrasts are nominal placeholders.** `findings.py` ships physically sensible
-   values marked `source="NOMINAL"`, not numbers from a published table. Relative statements
-   depend only on the floor and are sound; absolute verdicts inherit the table's uncertainty.
-   Replace it with `--findings table.yaml` before publishing.
+2. **The finding contrasts are derived, not measured.** As of 2026-08-16 `findings.py` no longer
+   ships free-floating placeholders: every `delta_d` is computed as
+   ΔD = (γ·C_s/ln 10)·(μ/ρ)·Δρ·t from published constants — NIST XCOM mass attenuation
+   coefficients, ICRU-44 tissue densities, a textbook film average gradient, and a measured
+   chest scatter-to-primary ratio — and each entry carries `source="DERIVED-SLAB-v1"`. That is
+   a traceable number with an error bar, not a measurement: the model assumes a monoenergetic
+   effective beam and a homogeneous lesion, and the two equipment constants (γ, C_s) are ranges
+   that scale *every* finding together, so a systematic error there moves all verdicts the same
+   way. Model uncertainty alone is ≈±24% relative before size spread. A contrast-detail phantom
+   exposed on the clinic's own film/processor, read with a densitometer, still beats this and is
+   still the right thing to do before publishing an absolute verdict — `--findings table.yaml`
+   takes it with no code change. Relative statements depend only on the floor and were never
+   affected either way.
 3. **γ is a prior, not a measurement**, unless a third distinct density is present. See §6.
 4. **The bound is about the measurement channel, not diagnostic difficulty.** The dominant
    obstacle to spotting a real nodule is anatomical clutter — ribs, vessels, the heart border —

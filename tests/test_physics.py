@@ -317,6 +317,53 @@ def test_noise_model_is_physical(scene):
 
 
 # --------------------------------------------------------------------------- #
+# findings
+# --------------------------------------------------------------------------- #
+
+
+def test_every_finding_contrast_is_derived_not_a_placeholder():
+    """The table's contrasts must stay traceable to the slab model.
+
+    A hand-typed `delta_d` would silently reintroduce exactly the unsourced
+    number this table was built to remove, so the guard is on `source`, not on
+    the values.
+    """
+    from tbtrust.physics.findings import DERIVATION_SOURCE, all_findings
+
+    assert all(f.source == DERIVATION_SOURCE for f in all_findings())
+    assert all(f.source != "NOMINAL" for f in all_findings())
+
+
+def test_slab_model_matches_the_closed_form():
+    """ΔD = (gamma * C_s / ln10) * (mu/rho) * Delta-rho * t, t in cm.
+
+    Pinned independently of the module's own arithmetic so a typo in the
+    derivation cannot pass by agreeing with itself.
+    """
+    from tbtrust.physics import findings as F
+
+    expected = (2.0 * 0.67 / np.log(10.0)) * 0.19 * 0.80 * 0.2   # 2mm, soft tissue vs lung
+    assert F.slab_delta_d(0.80, 2.0) == pytest.approx(expected, rel=1e-12)
+    assert F.get("miliary_nodule").delta_d == pytest.approx(expected, rel=1e-9)
+
+    # linear in both thickness and density step
+    assert F.slab_delta_d(0.80, 4.0) == pytest.approx(2 * F.slab_delta_d(0.80, 2.0))
+    assert F.slab_delta_d(1.60, 2.0) == pytest.approx(2 * F.slab_delta_d(0.80, 2.0))
+
+
+def test_derived_sigma_exceeds_the_shared_model_uncertainty():
+    """Every entry carries at least the equipment/attenuation uncertainty.
+
+    gamma and C_s are ranges, not point values, so no finding may report a
+    contrast tighter than the model that produced it.
+    """
+    from tbtrust.physics.findings import _REL_SIGMA_SHARED, all_findings
+
+    for f in all_findings():
+        assert f.delta_d_sigma / f.delta_d > _REL_SIGMA_SHARED, f.key
+
+
+# --------------------------------------------------------------------------- #
 # floor
 # --------------------------------------------------------------------------- #
 

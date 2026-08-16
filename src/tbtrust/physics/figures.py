@@ -638,7 +638,8 @@ def finding_atlas(cert=None, px_per_mm=None, figsize=(12.5, 6.8), chest_width_mm
 
     if cert is None:
         note = ("Pass a Certificate to shade each finding by whether a given photograph can\n"
-                "carry it. Contrast values are NOMINAL placeholders — see physics/findings.py.")
+                "carry it. Contrast values are derived from published attenuation and density\n"
+                "constants, not measured on a phantom — see physics/findings.py.")
     elif cert.abstained:
         note = ("This image ABSTAINED: no optical beam stop was found, so the veil is\n"
                 "unmeasured and no bound can be stated. Findings are shown unshaded.")

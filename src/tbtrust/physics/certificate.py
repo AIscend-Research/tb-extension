@@ -145,10 +145,17 @@ class Certificate:
             f"{fv.margin_db:+7.1f}±{fv.margin_db_sigma:<4.1f} {fv.verdict.value}"
             for fv in self.findings
         )
-        if self.provenance.get("contrast_source") == "NOMINAL":
+        src = self.provenance.get("contrast_source")
+        if src == "NOMINAL":
             lines += ["", "  NOTE: finding contrasts are NOMINAL placeholders "
                       "(see physics/findings.py). Relative comparisons hold; absolute "
                       "verdicts inherit their uncertainty."]
+        elif isinstance(src, str) and src.startswith("DERIVED-"):
+            lines += ["", f"  NOTE: finding contrasts are {src} -- computed from published "
+                      "attenuation/density constants, not measured on a phantom (see "
+                      "physics/findings.py). Relative comparisons hold; absolute verdicts "
+                      "carry the ~25% model uncertainty already in the ± above, and the "
+                      "equipment constants shift every finding in the same direction."]
         return "\n".join(lines)
 
 
