@@ -176,6 +176,36 @@ empirical threshold comes from the detector's behaviour on actual noisy captures
 them to agree: under-measure the veil and the floor comes out optimistic; over-smooth the MTF
 and it comes out pessimistic. The ratio is a score on the estimator, and it is free to be wrong.
 
+### Resolution dose-response (preliminary)
+
+`scripts/physics_certificates.py` swept working resolution 320–1536px at fixed severity 0.5, on
+a stratified 30-image sample of the aggregated Kaggle corpus (`outputs/res_sweep/`, 2026-08-15).
+P(detectable) per finding:
+
+| size (px) | cavity_wall | consolidation | infiltrate | miliary_nodule |
+|---|---|---|---|---|
+| 320 | 0.27 | 0.77 | 0.20 | 0.00 |
+| 512 | 0.53 | 0.63 | 0.20 | 0.00 |
+| 768 | 0.63 | 0.67 | 0.20 | 0.00 |
+| 1024 | 0.63 | 0.77 | 0.17 | 0.00 |
+| 1536 | 0.40 | 0.60 | 0.13 | 0.03 |
+
+`consolidation` and `infiltrate` are roughly flat across resolution — expected, since both are
+contrast-limited rather than resolution-limited at their characteristic size. `cavity_wall` is
+the one genuinely resolution-sensitive finding here (27%→63% between 320px and 768–1024px),
+consistent with being the smallest cited size in the table (3.4mm, see `findings.py`).
+`miliary_nodule` never reaches "detectable" at any resolution tested, and only barely reaches
+"marginal" (3%) at 1536px — at severity 0.5, phone resolution alone does not rescue it under the
+current placeholder `delta_d`.
+
+**Caveats, because this is preliminary, not a publication figure:** n=30 per point, one severity
+level, no repeat-seed noise estimate — the apparent dip at 1536px for `cavity_wall` and
+`consolidation` may be sampling noise rather than a real reversal. A first version of this sweep
+had a real bug (a git-branch-switch race condition silently reverted `cavity_wall`'s cited size
+mid-run for the 1536px point only); the table above is the corrected re-run with consistent
+parameters throughout. A proper version of this result would use multiple seeds per resolution
+and a severity sweep, not a single point.
+
 ---
 
 ## 4. Known limitations, in order of how much they should worry you
