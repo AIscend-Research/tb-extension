@@ -312,10 +312,103 @@ finding spans. A phone photographing a 35 cm film at 3000 px gets ~8 px/mm; at 3
 0.8, so a 2 mm miliary nodule is sub-pixel and the certificate correctly but uselessly calls
 every image insufficient. 1024 is the smallest size at which the severity sweep separates
 properly (miliary marginal on a clean capture, insufficient once degraded, larger findings still
-carried), and it costs about 2 s per image.
+carried). §5b turns that threshold into a measured curve.
 
 Notebooks [`05`](../notebooks/05_fiducial_coverage_audit.ipynb) through
 [`08`](../notebooks/08_physics_deferral_and_triage.ipynb) walk the whole track on Kaggle.
+
+### Measured cost
+
+From `outputs/resolution_sweep/summary.json` (median per image, single CPU core,
+Windows / Python 3.13 / numpy 2.4, no BLAS-heavy path involved — the inversion is
+FFT- and stencil-bound):
+
+| working size | px/mm | capture | invert | certify | total |
+|---|---|---|---|---|---|
+| 256 | 0.65 | 0.05 s | 0.08 s | 0.03 s | **0.16 s** |
+| 384 | 0.97 | 0.09 s | 0.25 s | 0.05 s | **0.44 s** |
+| 512 | 1.29 | 0.15 s | 0.43 s | 0.11 s | **0.67 s** |
+| 768 | 1.94 | 0.49 s | 1.66 s | 0.27 s | **2.55 s** |
+| 1024 | 2.58 | 1.29 s | 6.82 s | 0.72 s | **9.40 s** |
+| 1536 | 3.87 | 3.03 s | 33.25 s | 1.74 s | **39.36 s** |
+
+Cost grows faster than pixel count: 6× the linear size cost 246×, i.e. roughly the **cube of
+the linear size** (N^1.5 in pixels, not N^1.0), because the wide-sigma glare and PSF blurs are
+themselves size-dependent. Two consequences: 1024 is not "about 2 s per image" on every machine
+— it was ~9 s here, and the earlier ~1.9 s figure should be treated as machine-specific — and a
+full-corpus run at 1536 is an overnight job rather than a coffee break. Time it on your own
+hardware before planning a sweep, and read the per-size totals above as the shape rather than
+the absolute.
+
+## 5b. Resolution dose-response: the threshold as a curve
+
+`scripts/resolution_sweep.py` sweeps capture resolution on the synthetic film and reports the
+px/mm at which each finding's contrast clears the measured floor. It needs no data and no GPU
+(~15 min for the default 108-cell run).
+
+**"More megapixels" is two different physical claims**, so the script runs both and the answer
+is the bracket, not one end of it. Every length in `CaptureParams` is in pixels of the output
+photo, so changing `--size` alone silently asserts that the lens, the hand shake and the photon
+budget per pixel all improve in lockstep with the sensor:
+
+- **sampling-limited** (`--mode sampling`) — blur fixed *in pixels*, each pixel keeps its own
+  full photon well. This is what `--size` does today, and it is the optimistic end.
+- **optics-limited** (`--mode optics`) — blur fixed *in millimetres of film* (the lens and the
+  operator's hand do not improve because the sensor got denser, so the PSF and motion smear
+  scale with px/mm) and the photon budget conserved across the frame rather than per pixel
+  (more, smaller wells means more per-pixel shot noise; read noise stays per-pixel). The
+  realistic end, and the only one that can show saturation.
+
+### What it measures (3 films × 3 severities × 6 sizes × 2 modes)
+
+Median margin in dB for the miliary nodule, the finding that decides every image's verdict:
+
+| mode | severity | 0.65 | 0.97 | 1.29 | 1.94 | 2.58 | 3.87 px/mm |
+|---|---|---|---|---|---|---|---|
+| sampling | 0.00 | −17.0 | −11.0 | −6.3 | −0.9 | **+1.5** | **+4.0** |
+| sampling | 0.25 | −22.0 | −12.9 | −8.7 | −4.1 | −2.3 | −0.8 |
+| sampling | 0.50 | −22.7 | −14.4 | −8.5 | −4.0 | −4.5 | −4.5 |
+| optics | 0.00 | −8.9 | −6.7 | **−6.3** | −8.3 | −9.8 | −11.7 |
+| optics | 0.25 | −15.8 | −11.4 | **−8.7** | −11.9 | −16.1 | −21.2 |
+| optics | 0.50 | −18.5 | −13.2 | **−8.5** | −12.6 | −18.2 | −25.7 |
+
+Four results, in order of how much they should change what you do:
+
+1. **The optics-limited curve is non-monotone and peaks at 1.29 px/mm** (working size 512) at
+   every severity, declining on both sides — +3.7 dB/octave below the peak and −3.2 dB/octave
+   above it on a clean capture, steepening to +13.9 / −12.7 at severity 0.5. If the lens and the
+   light are fixed, resolution past ~1.3 px/mm does not merely stop helping, it **costs measured
+   density resolution**, because the added pixels divide the same photons while the blur covers
+   proportionally more of them. "Photograph it at the highest resolution the phone offers" is
+   not the right instruction.
+2. **On a clean capture in the optimistic model, a miliary nodule needs 2.15 px/mm to clear
+   INSUFFICIENT and 3.30 px/mm to reach DETECTABLE** — 0.71 and 1.67 megapixels over a
+   35.5 × 43.2 cm film. That is a far more modest sensor requirement than "8 px/mm", and it is
+   the first number in this repo that answers the deployment question directly.
+3. **Resolution does not rescue a degraded capture.** At severity 0.25 and above the miliary
+   nodule never clears the floor at any resolution tested, in either mode. Framing, glare and
+   steadiness dominate; megapixels do not substitute for them.
+4. **Everything larger than a miliary nodule is carried at every resolution tested** — infiltrate,
+   cavity wall and consolidation all clear the floor at 0.65 px/mm on a clean capture, so the
+   whole resolution question is a question about miliary TB specifically.
+
+### What this does *not* establish
+
+- It is the synthetic film, not real radiographs, and the contrasts are the `NOMINAL` table
+  (§4.2), so every absolute px/mm figure inherits that table's uncertainty. The *shape* of the
+  curve — the peak's existence and its location — depends only on the floor and is sound.
+- The px/mm axis carries the ±20% `px_per_mm` inference error (§4.5), which is roughly ±40% on
+  every megapixel figure. A ruler in the frame removes it.
+- The decline rate above the peak depends on the modelling choice that read noise stays
+  per-pixel while well capacity scales with pixel area. That is right for a fixed sensor
+  divided more finely, but a genuinely better sensor is a different experiment.
+- 50% of severity-0.5 cells abstained: the fiducial detector loses the beam stop on heavily
+  degraded captures, so the certificate reports "cannot measure" rather than a margin. Under the
+  optics-limited model, raising resolution can *induce* abstention (one film measured fine at
+  768 and abstained at 1024 and above), which is the safety valve switching itself off in
+  exactly the direction that matters. That behaviour is safe by design — an abstention maps to
+  confidence 0.0 and is deferred first — but it means the high-severity rows above are computed
+  on the half of the captures that could still be measured.
 
 ---
 

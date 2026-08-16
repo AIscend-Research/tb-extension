@@ -74,6 +74,23 @@ D_MAX_DEFAULT = 3.20
 # Used to sanity-check an inversion and to set the display mapping in film.py.
 D_LUNG_RANGE = (0.35, 2.30)
 
+# Average gradient (the "gamma") of the screen-film system: how much a log
+# exposure difference is amplified into an optical density difference on the
+# linear part of the characteristic curve. General-purpose medical screen-film
+# runs roughly 2.5-3.5; wide-latitude chest film is deliberately flatter, around
+# 2.0-2.5, trading contrast for the dynamic range a chest needs. The default
+# takes the low end of the chest range, which is the conservative choice for a
+# *detectability* claim: a lower gradient yields a smaller Delta D per unit
+# subject contrast, so findings are assumed harder to see rather than easier.
+#
+# It is a property of the film and processor, not of the phone, so nothing in
+# the inversion can measure it -- it has to be supplied. It enters only
+# `delta_density_from_contrast`, i.e. only when converting a published subject
+# contrast into a density step for `findings.py`. Densities already quoted in D
+# do not touch it.
+AVERAGE_GRADIENT_DEFAULT = 2.5
+AVERAGE_GRADIENT_RANGE = (2.0, 3.5)
+
 
 @dataclass(frozen=True)
 class FilmModel:
@@ -147,14 +164,38 @@ def density_to_display(d, film: FilmModel | None = None):
     return np.clip((film.d_max - dd) / (film.d_max - film.d_min), 0.0, 1.0)
 
 
-def delta_density_from_contrast(background_d, contrast_ratio: float) -> np.ndarray:
-    """Density step corresponding to a fractional transmittance change.
+def delta_density_from_contrast(background_d, contrast_ratio: float,
+                                film_gamma: float = AVERAGE_GRADIENT_DEFAULT) -> float:
+    """Density step corresponding to a fractional *exposure* (subject) contrast.
 
-    A lesion that attenuates `contrast_ratio` more of the beam shifts density by
-    log10(1 + contrast_ratio) independently of the background level -- density is
-    a log quantity, which is exactly why lesion contrast is quotable as a single
+    This is the conversion to use when transcribing a published lesion contrast
+    into `findings.py`, because the radiographic-physics literature quotes
+    subject contrast -- a ratio of X-ray exposures reaching the screen, or
+    equivalently a percentage transmission difference -- while the certificate
+    needs the resulting optical density step on the developed sheet.
+
+        Delta D  =  gamma_film * log10(1 + C)
+
+    Two things to get right, in the order they bite:
+
+    **The film gradient is not 1.** The exposure ratio is amplified by the
+    screen-film system's average gradient before it becomes density; dropping
+    that factor understates Delta D by the whole gamma, which for chest film is
+    a factor of two to three. That error runs in the *dangerous* direction for
+    this project: too small a Delta D makes findings look less detectable than
+    they are, which sounds conservative but is not -- it inflates the measured
+    INSUFFICIENT rate and so the retake rate, and it is the kind of error that
+    makes a certificate look better calibrated against a matched filter than it
+    has earned. Set `film_gamma` from the film stock in use where that is known;
+    see `AVERAGE_GRADIENT_DEFAULT` for the default and its range.
+
+    **It is independent of the background level.** Density is a log quantity, so
+    the same subject contrast gives the same density step anywhere on the film's
+    linear latitude -- which is exactly why a lesion contrast is quotable as one
     number per finding type in `findings.py` rather than as a function of where
-    in the lung it sits.
+    in the lung it sits. That holds only on the linear part of the characteristic
+    curve; toe and shoulder regions compress it, and the lung field is chosen to
+    sit on the linear part precisely so this is true.
     """
     _ = background_d
-    return float(np.log10(1.0 + contrast_ratio))
+    return float(film_gamma * np.log10(1.0 + contrast_ratio))

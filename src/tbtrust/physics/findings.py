@@ -36,6 +36,13 @@ Any publication using this code must replace the unsourced fields, by either:
   combination the clinic uses, and read the densities off with a densitometer.
 
 `load_findings` reads a YAML or CSV table so the swap needs no code change at all.
+**`findings_template.yaml`, beside this file, is that table with the values
+blanked and the transcription recipe written out** -- what quantity to take, how
+to convert a published *subject* contrast into optical density (multiply by the
+film's average gradient; forgetting it costs a factor of two to three and does
+not fail safe), the traps that make a transcription wrong, and the ordering and
+magnitude checks to run afterwards. Start there rather than editing the dict
+below, so the numbers arrive with their citations attached.
 
 Until that happens, the certificate's *relative* statements -- this photo carries
 less density resolution than that one, this glare hotspot costs you a factor of

@@ -136,7 +136,14 @@ of that track can claim, and it needs no model and no GPU:
 ```bash
 python scripts/audit_fiducials.py --manifest data/processed/manifest.csv --out outputs/fiducial_audit
 python scripts/validate_physics.py --quick     # the experiments that could falsify the bound
+python scripts/resolution_sweep.py --quick     # how the floor moves with capture resolution
 ```
+
+`resolution_sweep.py` answers the deployment question the `--size` flag only
+gestures at — what capture resolution a finding needs before its contrast clears
+the measured floor — and reports it as a bracket between two modelling
+assumptions rather than a single number, because "more megapixels" is two
+different physical claims (`docs/PHYSICS.md` §5b). It needs no data either.
 
 For the paper's figures — the capture-chain schematic, the sign-convention
 explainer, annotated radiographs, the TB finding atlas, and the detectability
@@ -181,7 +188,7 @@ scripts/            download_data, build_manifest, clinic_stats, smoke_test,
                     train, evaluate, train_ensemble, benchmark_efficiency,
                     evaluate_adversarial_robustness, ablate_degradation,
                     run_experiments, audit_fiducials, validate_physics,
-                    physics_certificates, make_figures
+                    physics_certificates, resolution_sweep, make_figures
 src/tbtrust/
   data/             degradation pipeline, manifest + provenance, LOCO splits,
                     torch Dataset, per-clinic shift statistics

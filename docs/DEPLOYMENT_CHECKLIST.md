@@ -51,10 +51,26 @@ explicit rather than implied.
       the retake. `physics/triage.py` emits the specific fix — which way the glare
       is, whether the blur is shake or defocus, whether the exposure is crushed —
       from `glare.hotspot` and `psf.PSFEstimate.anisotropy`.
+- [ ] **A retake actually helps.** If the failure is a cracked lightbox or a
+      broken camera, retaking produces another bad photo. Cap retakes per image,
+      escalate on the cap, and log the repeat-retake rate — it is the leading
+      indicator of a hardware failure at the site, and it is also a fairness
+      number (`docs/FAIRNESS_AUDIT.md` §A3).
+- [ ] **Deferral is not silently disabled** when the queue gets long. This is the
+      predictable failure mode under workload pressure, and it converts the system
+      from safe to dangerous without any code change. Whatever the mechanism —
+      config flag, threshold override, a "skip" button — it must be logged and
+      visible to someone other than the operator.
+- [ ] **The deferral budget is agreed with the people who absorb it**, and the
+      per-site burden is measured rather than assumed equal. A site with a dimmer
+      lightbox absorbs more retakes for the same case mix.
 
-## B2. Two cheap additions to the lightbox that are worth more than any model change
+## B2. Three cheap changes at the lightbox, worth more than any model change
 
-Both turn an assumption in `physics/` into a measurement, and both cost almost nothing.
+The first two turn an assumption in `physics/` into a measurement; the third
+protects the measurements already available. None costs more than pennies and a
+morning's training, and together they remove the two weakest assumptions in the
+physics track — which is a better return than any modelling change on offer.
 
 - [ ] **Tape a small step wedge beside the film.** A few pence of exposed,
       processed film with two or three known optical densities. With only the two
@@ -73,11 +89,38 @@ Both turn an assumption in `physics/` into a measurement, and both cost almost n
       three regions are the entire basis of the physics track, and a tight crop to
       the lung fields destroys all of them — after which the certificate can only
       abstain. `scripts/audit_fiducials.py` measures how often this is being done.
-- [ ] **A retake actually helps.** If the failure is a cracked lightbox or a
-      broken camera, retaking produces another bad photo. Cap retakes and escalate.
-- [ ] **Deferral is not silently disabled** when the queue gets long. This is the
-      predictable failure mode under workload pressure, and it converts the system
-      from safe to dangerous without any code change.
+
+## B3. Before the certificate is allowed to gate anything
+
+The physics track has its own prerequisites, and they are separate from the
+model's because it fails in a different way: it does not become wrong, it becomes
+silent (`ABSTAIN`) or optimistic.
+
+- [ ] **Fiducial coverage measured at this site**, not inherited from the
+      development corpus. `scripts/audit_fiducials.py` on a sample of the site's
+      own captures. An abstain rate above the level agreed here means the
+      certificate is not protecting this site and the deferral policy must not be
+      described to its staff as if it were.
+- [ ] **The calibration ratio is above 1** in the most recent
+      `scripts/validate_physics.py` run whose numbers are being relied on.
+      Predicted floor over empirical threshold below 1 means the certificate
+      passes photographs an optimal detector cannot read; it does not ship in that
+      state, and CI already exits non-zero when it drifts outside the tolerance
+      band.
+- [ ] **The finding-contrast table's provenance is stated wherever a verdict is
+      shown.** While `physics/findings.py` still reads `source="NOMINAL"`, every
+      absolute DETECTABLE / INSUFFICIENT verdict inherits a placeholder's
+      uncertainty. Relative comparisons between two photographs are unaffected.
+      The certificate's provenance block prints this; do not suppress it in a UI.
+- [ ] **The certificate is not the only gate.** It bounds the *measurement
+      channel*, not diagnostic difficulty — anatomical clutter is in the original
+      film too and no retake fixes it. A photograph can clear the floor and still
+      be a case that needs a specialist.
+- [ ] **Interior glare is understood to be under-measured.** The beam stop is an
+      annulus, so the veil is measured at the periphery and interpolated across
+      the middle; a dim central reflection is under-reported and the certificate
+      is optimistic there. Until a second probe exists, a curtain or a shaded
+      lightbox is the mitigation, and it is free.
 
 ## C. Monitoring, once live
 
@@ -92,6 +135,10 @@ Both turn an assumption in `physics/` into a measurement, and both cost almost n
       threshold cannot be re-tuned.
 - [ ] **A defined trigger for taking the model offline**, agreed in advance and
       owned by someone other than the person operating it.
+- [ ] **The fairness audit re-run on live data at a defined interval**, not only
+      once at development time. `docs/FAIRNESS_AUDIT.md` §6 is the checklist; the
+      per-clinic calibration comparison is the item that catches hidden domain
+      shift before point accuracy does.
 
 ## D. Governance and data
 
@@ -108,6 +155,16 @@ Both turn an assumption in `physics/` into a measurement, and both cost almost n
 - [ ] **Failure modes disclosed to users in the interface**, including that the
       model was developed on synthetic degradation and validated on two held-out
       clinics of 138 and 662 images.
+- [ ] **Equity of service audited, not just average accuracy.** Per-clinic
+      calibration, sensitivity parity, deferral burden and certificate
+      measurability — `docs/FAIRNESS_AUDIT.md`. A system that performs equally on
+      average while sending twice the retake requests to the poorest-equipped site
+      is not delivering the same service there.
+- [ ] **No demographic fairness claim is made** while the manifest carries no
+      demographic attribute. Sex and age are recoverable for Montgomery and
+      Shenzhen from the NLM clinical readings and that join is worth doing; HIV
+      status, which changes TB's radiographic presentation, is not available in
+      any of these cohorts and its absence is disclosed rather than glossed.
 
 ## E. Evidence that does not exist yet
 
@@ -120,3 +177,10 @@ they require studies nobody has run:
 - Evidence that the deferral workflow improves patient outcomes rather than
   merely improving retained-set accuracy. A model can post excellent selective
   accuracy while making a clinic slower and no more accurate overall.
+- Any validation against a **real phone photograph of a real film**. Everything
+  in the physics track is currently validated against a forward model written by
+  the same authors, which is a weaker claim than it looks
+  (`data/real_recapture/README.md` has the protocol and no data).
+- Performance in a high-HIV-prevalence screening population, where TB's
+  radiographic presentation differs and where the burden is highest
+  (`docs/FAIRNESS_AUDIT.md` §5).

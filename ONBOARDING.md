@@ -152,13 +152,23 @@ Three things a newcomer should know before changing anything:
   estimator, that ratio is the number that says whether you improved it.
 * **The finding contrasts in `findings.py` are nominal placeholders** marked
   `source="NOMINAL"`. Relative results are sound; absolute verdicts inherit their
-  uncertainty. Replacing that table is a genuine, self-contained contribution.
+  uncertainty. Replacing that table is a genuine, self-contained contribution —
+  start from `physics/findings_template.yaml`, which is the same table with the
+  values blanked, the transcription recipe (including the film-gradient
+  conversion that is easy to drop) and the checks to run afterwards.
 
 **Phase 5, writing.** The results tables and figures come straight out of
-`eval/run.py` (metrics.json + the reliability/deferral figure). Write the
-limitations honestly: everything is synthetic degradation with no real phone
-captures yet, the uncertainty target is a proxy for correctness rather than
-measured radiologist agreement, and deferral assumes trained staff are on hand.
+`eval/run.py` (metrics.json + the reliability/deferral figure) and
+`scripts/make_figures.py`. `docs/PAPER_DRAFT.md` is the draft: full prose with
+every unmeasured value as a `{{PLACEHOLDER}}` naming the artifact that must
+produce it, so filling it in is mechanical and no invented number can survive.
+`docs/FAIRNESS_AUDIT.md` is the audit that goes with it — per-clinic
+calibration, sensitivity parity, deferral burden and certificate measurability —
+and `docs/DEPLOYMENT_CHECKLIST.md` is what would have to be true before any
+clinical use. Write the limitations honestly: everything is synthetic
+degradation with no real phone captures yet, the uncertainty target is a proxy
+for correctness rather than measured radiologist agreement, and deferral assumes
+trained staff are on hand.
 
 ## A way to split it across ~4 people
 
