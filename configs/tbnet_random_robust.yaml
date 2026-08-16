@@ -1,0 +1,48 @@
+# Robustness training, in-distribution split: the recovery arm.
+#
+# Identical to configs/tbnet_random_clean.yaml except that training sees the
+# Phase 2 smartphone degradation pipeline at a severity drawn uniformly from
+# [0, 1] per image, per epoch. Everything else -- network, split, seed handling,
+# epochs, lr, uncertainty head off -- is held fixed, so the difference between
+# the two runs' accuracy-vs-severity curves is attributable to the augmentation.
+#
+# What to read off it: `metrics.json` reports accuracy at every point of
+# eval.severity_sweep. The recovery is the per-severity difference
+#
+#     recovery(s) = robust_accuracy(s) - clean_trained_accuracy(s)
+#
+# and the interesting shape is that it should be ~0 at s=0 (augmentation costs
+# little on clean data) and grow with s. A robust arm that also *raises* the s=0
+# number is suspicious: on a corpus this small that is more likely regularization
+# from the augmentation than a real robustness gain, and it should be checked
+# against the clean arm's seed spread before it is claimed.
+#
+# The degradation is synthetic (data/degradation.py), so this measures robustness
+# to *our model of* a phone recapture, not to a phone. docs/LIMITATIONS.md item 2
+# is the standing caveat and this run does not close it.
+data:
+  split_mode: random
+  test_frac: 0.15
+  val_frac: 0.15
+
+degradation:
+  train_low: 0.0
+  train_high: 1.0
+  val_fixed: 0.25       # checkpoint selection happens at a mid severity, not clean
+
+model:
+  arch: tbnet
+  dropout: 0.3
+  # Still off, for comparability with the clean arm. This config would be the
+  # natural place to turn it on -- severity actually varies here, so the weak
+  # target is informative -- but that is the uncertainty arm's job, not this one's.
+  with_uncertainty_head: false
+
+train:
+  epochs: 40
+  lr: 1.0e-3
+
+eval:
+  severity_sweep: [0.0, 0.25, 0.5, 0.75, 1.0]
+  primary_severity: 0.5
+  uncertainty: [confidence, mc_dropout]

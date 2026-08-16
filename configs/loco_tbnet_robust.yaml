@@ -1,0 +1,50 @@
+# Robustness training, cross-site split: does augmentation recover the LOCO gap too?
+#
+# The 2x2 this completes:
+#
+#                       clean training            degradation training
+#   random split    tbnet_random_clean.yaml     tbnet_random_robust.yaml
+#   LOCO            loco_tbnet_clean.yaml       loco_tbnet_robust.yaml   <- this file
+#
+# Reading the cells against each other separates two effects that are easy to
+# conflate. Degradation augmentation is a *capture-quality* intervention; the
+# LOCO gap is a *site* effect. They are not the same axis, and augmenting the
+# training data does not obviously fix a site shift driven by machine, population
+# and positioning rather than by photograph quality. This arm is what says
+# whether it does anyway -- an honest possible outcome is "recovers the severity
+# curve, leaves the cross-site gap where it was", and that result is worth as
+# much as a positive one.
+#
+# Montgomery is held out by default; run the other fold with
+#     python scripts/train.py --config configs/loco_tbnet_robust.yaml \
+#         data.holdout_clinic=shenzhen
+#
+# The training-set-size confound in loco_tbnet_clean.yaml's header applies here
+# unchanged: ~563 training images with Montgomery held out, ~117 with Shenzhen
+# held out. Compare like fold with like fold, never one fold against the other.
+data:
+  split_mode: loco
+  holdout_clinic: montgomery
+  val_frac: 0.15
+
+degradation:
+  train_low: 0.0
+  train_high: 1.0
+  val_fixed: 0.25
+
+model:
+  arch: tbnet
+  dropout: 0.3
+  with_uncertainty_head: false
+
+dg:
+  method: none          # still none: this arm isolates augmentation, not DG
+
+train:
+  epochs: 40
+  lr: 1.0e-3
+
+eval:
+  severity_sweep: [0.0, 0.25, 0.5, 0.75, 1.0]
+  primary_severity: 0.5
+  uncertainty: [confidence, mc_dropout]
