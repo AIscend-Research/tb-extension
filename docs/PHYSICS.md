@@ -124,16 +124,43 @@ From `python scripts/validate_physics.py` on the synthetic film (see §5 for how
 
 | quantity | result |
 |---|---|
-| collimation corners | ~0.15 px error on a clean capture, ~2.7 px at severity 1.0 |
-| PSF σ from the slanted edge | within ~15% of truth up to severity 0.75 |
-| veil at the beam stop | recovered at 0.8–1.5× truth across the sweep |
+| collimation corners | ~1.0 px median error, worsening with severity |
+| PSF σ from the slanted edge | within ~15% of truth (median rel. err −0.15) |
+| veil at the beam stop | **median error −0.44** of true veil fraction — badly under-recovered once coverage drops below `full` |
 | lead marker | found reliably on clean captures; often lost above moderate severity |
-| **detectability calibration** | **median predicted/empirical ≈ 1.7** |
+| **detectability calibration** | **median predicted/empirical = 0.50** (IQR 0.12–1.90), 31% of the 16 severity×finding conditions pass |
 
-The last row is the one that matters. `ratio > 1` means the bound is **conservative**: it
-declares information lost slightly before an optimal detector actually loses it. That is the
-safe direction for a safety valve. Quote this number with any result — a bound reported without
-its measured calibration is an assertion.
+**The last row is the one that matters, and as of the 2026-08-15 full (non-`--quick`) run it
+fails in the dangerous direction.** `ratio < 1` means the bound is **optimistic**: it would
+certify a photograph an optimal detector cannot actually read. Do not deploy the certificate as
+a safety valve until this is back above 1. (`--quick`'s tiny 2-condition sample gives ≈1.4–1.7 and
+missed this — the quick number is a CI smoke check, not a publication figure. Quote the full-run
+number with any result; a bound reported without its measured calibration is an assertion.)
+
+The proximate cause is visible in the channel-recovery row above: veil-fraction error is roughly
+flat and small (≈−0.01) while coverage is `full`, then collapses to ≈−0.73 once severity pushes
+coverage to `none` and the beam-stop rim is lost — `density_abs_rmse` more than doubles across
+the same range (0.27 → 1.21). The estimator has no good fallback for the glare field once its
+only measurement of it disappears, and the floor it reports stays too small exactly when the
+image is worst.
+
+The per-condition breakdown (`outputs/physics_validation/detectability.csv`) sharpens this. At
+severity 0.0 every finding is over-conservative (ratio 1.9–3.7 — the safe direction). As severity
+rises the bias flips sign, and by severity 0.75 three of the four findings sit far below 1:
+`miliary_nodule` 0.066, `cavity_wall` 0.118, `consolidation` 0.121 (only `infiltrate`, at 0.41,
+is less extreme). For `cavity_wall` and `consolidation` the linear d′-vs-contrast fit is still
+good there (R² = 0.96 and 0.92), so this is **not** primarily a probe-bracket artifact — it is a
+broad, well-fit miscalibration at high severity, consistent with the channel-recovery collapse
+described above.
+
+`detectability_experiment`'s self-referential probe bracket (0.5×/1×/2× of the *model's own
+predicted floor*, `validate.py:308-315`) is a real, separate problem, but it is narrower than
+that broad picture: it specifically wrecks the fit for `miliary_nodule` at severity 0.5 (R² =
+−0.04, the one condition where the linear model is unusable) and, less severely, `cavity_wall`
+at severity 0.5 (R² = 0.68, ratio 0.11). Outside those two cells, low R² is not what explains the
+low ratios — the channel-recovery collapse is. Treat the *direction* (optimistic, unsafe) and its
+*breadth* across finding types as solid; only the exact magnitude at the `miliary_nodule`/severity
+0.5 cell specifically is inflated by the bracket artifact and shouldn't be quoted at face value.
 
 ### The falsification test
 
@@ -148,6 +175,36 @@ from an MTF read off the collimation border, the veil amplification from the bea
 empirical threshold comes from the detector's behaviour on actual noisy captures. Nothing forces
 them to agree: under-measure the veil and the floor comes out optimistic; over-smooth the MTF
 and it comes out pessimistic. The ratio is a score on the estimator, and it is free to be wrong.
+
+### Resolution dose-response (preliminary)
+
+`scripts/physics_certificates.py` swept working resolution 320–1536px at fixed severity 0.5, on
+a stratified 30-image sample of the aggregated Kaggle corpus (`outputs/res_sweep/`, 2026-08-15).
+P(detectable) per finding:
+
+| size (px) | cavity_wall | consolidation | infiltrate | miliary_nodule |
+|---|---|---|---|---|
+| 320 | 0.27 | 0.77 | 0.20 | 0.00 |
+| 512 | 0.53 | 0.63 | 0.20 | 0.00 |
+| 768 | 0.63 | 0.67 | 0.20 | 0.00 |
+| 1024 | 0.63 | 0.77 | 0.17 | 0.00 |
+| 1536 | 0.40 | 0.60 | 0.13 | 0.03 |
+
+`consolidation` and `infiltrate` are roughly flat across resolution — expected, since both are
+contrast-limited rather than resolution-limited at their characteristic size. `cavity_wall` is
+the one genuinely resolution-sensitive finding here (27%→63% between 320px and 768–1024px),
+consistent with being the smallest cited size in the table (3.4mm, see `findings.py`).
+`miliary_nodule` never reaches "detectable" at any resolution tested, and only barely reaches
+"marginal" (3%) at 1536px — at severity 0.5, phone resolution alone does not rescue it under the
+current placeholder `delta_d`.
+
+**Caveats, because this is preliminary, not a publication figure:** n=30 per point, one severity
+level, no repeat-seed noise estimate — the apparent dip at 1536px for `cavity_wall` and
+`consolidation` may be sampling noise rather than a real reversal. A first version of this sweep
+had a real bug (a git-branch-switch race condition silently reverted `cavity_wall`'s cited size
+mid-run for the 1536px point only); the table above is the corrected re-run with consistent
+parameters throughout. A proper version of this result would use multiple seeds per resolution
+and a severity sweep, not a single point.
 
 ---
 
@@ -187,6 +244,22 @@ None of this works on an image whose fiducials were cropped away, and public arc
 low certifiable rate is a result to report with its number, not a bug to work around — and the
 simulated re-photography path in `film.py` remains fully available, since it paints the
 fiducials back on and gives a controlled experiment with ground truth.
+
+**Caveat on the coverage number itself (found 2026-08-15, visual QA on the aggregated Kaggle
+corpus, n=9 sampled `partial`-coverage images, 9/9 affected):** `detect_collimation`
+(`physics/fiducials.py:245-308`) declares a collimation border present whenever the outer 3%
+border strip is ≥0.12 brighter than the darkest 5% of the centre. Ordinary chest anatomy
+satisfies this on its own — lung fields are always the darkest region of the frame and
+surrounding soft tissue is always brighter — so a tightly-cropped image with no real film border
+can still pass the test. `detect_beamstop`'s primary path then fits its mask to the same false
+edge, landing on lung tissue rather than a genuine direct-exposure region. Visual overlays
+(`outputs/figures/11_fiducials_real.png` and an ad hoc 9-image sample) confirm this is
+systematic, not occasional, on this corpus. **The measured 32.1% certifiable rate is therefore a
+likely overestimate**, concentrated in the `partial` bucket (23.9%); the qualitative verdict
+(simulated re-photography path, since this corpus lacks real fiducials) is unaffected and if
+anything reinforced, but the number should not be quoted as a clean measurement until the
+detector is hardened to require the bright border to be low-variance/uniform, not merely
+brighter than the darkest interior pixels, and validated against images with known ground truth.
 
 ---
 

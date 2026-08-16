@@ -8,12 +8,26 @@ characteristic size, and the certificate is the comparison of the two.
 Read this section before quoting a number
 -----------------------------------------
 The values below are **nominal defaults**, chosen to be physically sensible for
-screen-film chest radiography and internally consistent with `D_LUNG_RANGE`. They
-are *not* measured, and they are not taken from a specific published table. Every
-entry carries `source="NOMINAL"` for exactly that reason.
+screen-film chest radiography and internally consistent with `D_LUNG_RANGE`. Every
+entry still carries `source="NOMINAL"`, and that field should be read as applying
+to the whole record unless a given field's citation is checked individually.
 
-They are structured so that replacing them is a one-line change, and any
-publication using this code must replace them, by either:
+**`delta_d` (the density-contrast values) are unsourced for every finding.** A
+literature search (2026-08-15) did not turn up a published table of film optical
+density by chest radiographic finding type -- contrast-detail literature reports
+CNR, Weber contrast, or subjective conspicuity scores on digital systems, not
+classical film ΔOD by named finding. These numbers still need either a phantom
+measurement or a source not found in that search.
+
+**`size_mm` / `size_sigma_mm` are cited from real literature for `miliary_nodule`,
+`small_nodule`, and `cavity_wall`** -- see each entry's `note` for the specific
+paper and caveats (in particular, `cavity_wall`'s 3.4mm uses the *thinnest*-wall
+statistic from a CT study, not plain-film-measured). `infiltrate`, `consolidation`,
+`pleural_effusion`, and
+`fibrotic_band` remain unsourced placeholders: no citable single characteristic
+diameter was found for these more diffuse, anatomically-variable findings.
+
+Any publication using this code must replace the unsourced fields, by either:
 
 * transcribing contrast and size ranges from a radiographic physics reference or
   a contrast-detail study, and recording the citation in `source`; or
@@ -87,35 +101,78 @@ TB_FINDINGS: dict[str, FindingSpec] = {
         FindingSpec(
             "miliary_nodule", "Miliary nodule", 0.030, 0.012, 2.0, 0.8,
             note="The hardest target by a wide margin: small and low contrast at once. "
-                 "If any finding is going to fall below the floor of a phone photo, it is this one.",
+                 "If any finding is going to fall below the floor of a phone photo, it is this one. "
+                 "size_mm is cited, delta_d is not: nodules measure <3mm in >90% of correctly "
+                 "identified miliary TB cases, typically 1-2mm (Kwong et al., 'Miliary tuberculosis. "
+                 "Diagnostic accuracy of chest radiography', PubMed 8697830); STATPEARLS NBK562300 "
+                 "gives the same 1-2mm range. delta_d remains an unsourced NOMINAL placeholder -- "
+                 "no contrast-detail phantom study reporting film optical density by TB finding type "
+                 "was found; needs a phantom measurement, not a literature transcription.",
         ),
         FindingSpec(
             "small_nodule", "Small nodule", 0.060, 0.025, 6.0, 3.0,
-            note="Individual granuloma or a small focus of disease.",
+            note="Individual granuloma or a small focus of disease. size_mm sits in the standard "
+                 "'subcentimeter nodule' bracket (<10mm) and specifically the <6mm bracket radiology "
+                 "literature associates with the lowest malignancy probability (~1%, rising to "
+                 "~10-20% around 8mm), distinguishing it from the <3mm 'micronodule'/miliary bracket, "
+                 "per MacMahon H et al., 'Guidelines for Management of Incidental Pulmonary Nodules "
+                 "Detected on CT Images: From the Fleischner Society 2017,' Radiology 2017; "
+                 "284(1):228-243, DOI 10.1148/radiol.2017161659. This is a size-category citation from "
+                 "CT-nodule-management literature, not a TB-granuloma-specific or plain-film-specific "
+                 "measurement. delta_d is an unsourced NOMINAL placeholder. (An earlier version of this "
+                 "note cited an AJR paper for this claim without confirming it was the actual source -- "
+                 "corrected 2026-08-15 after the Fleischner 2017 guideline was verified directly.)",
         ),
         FindingSpec(
             "infiltrate", "Patchy infiltrate", 0.090, 0.040, 15.0, 7.0,
             note="Ill-defined airspace opacity; the low-contrast edge is what makes it hard, "
-                 "not the size.",
+                 "not the size. No specific citable linear-mm size was found for this finding -- "
+                 "'patchy infiltrate' extent varies too widely across presentations for a single "
+                 "characteristic diameter to be meaningful, and no source measuring one was located "
+                 "in this session. size_mm and delta_d are both still unsourced NOMINAL placeholders.",
         ),
         FindingSpec(
-            "cavity_wall", "Cavity wall", 0.220, 0.080, 4.0, 2.0,
+            "cavity_wall", "Cavity wall", 0.220, 0.080, 3.4, 1.8,
             note="High contrast but thin. Blur-limited rather than contrast-limited, which is "
-                 "why it behaves quite differently from an infiltrate under motion.",
+                 "why it behaves quite differently from an infiltrate under motion. size_mm/size_sigma_mm "
+                 "updated from an earlier placeholder (4.0/2.0) to a cited value, chosen carefully: "
+                 "Kim et al., 'Comparison of chest CT findings in nontuberculous mycobacterial diseases "
+                 "vs. Mycobacterium tuberculosis lung disease' (PMC5367717) reports TWO wall-thickness "
+                 "statistics per cavity -- thickest (10.9+/-5.6mm TB, 6.9+/-3.7mm NTM) and thinnest "
+                 "(3.4+/-1.8mm TB, 2.8+/-1.2mm NTM), Table 2. This entry uses the THINNEST-wall figure, "
+                 "because a cavity's thinnest segment is the blur-limited dimension this note already "
+                 "describes -- the thickest segment is not what a resolution floor needs to clear. "
+                 "Caveat: CT-measured, not plain-film-measured -- the wall thickness actually resolvable "
+                 "on a projection radiograph/phone photo may differ from the CT cross-sectional value. "
+                 "delta_d remains an unsourced NOMINAL placeholder.",
         ),
         FindingSpec(
             "consolidation", "Lobar consolidation", 0.350, 0.120, 45.0, 20.0,
             note="Large and high contrast. Survives almost any capture; useful as the control "
-                 "that shows the certificate is not simply failing everything.",
+                 "that shows the certificate is not simply failing everything. No specific citable "
+                 "linear-mm size was found -- lobar consolidation extent is defined by anatomy (a "
+                 "lobe), not a characteristic lesion diameter, and no source giving one was located "
+                 "in this session. size_mm and delta_d are both still unsourced NOMINAL placeholders.",
         ),
         FindingSpec(
             "pleural_effusion", "Pleural effusion", 0.400, 0.150, 30.0, 15.0,
             note="Blunted costophrenic angle. Peripheral, so it is the finding most often lost "
-                 "to a crop or to vignetting rather than to noise.",
+                 "to a crop or to vignetting rather than to noise. Related citable data exists but "
+                 "was not converted into size_mm: erect-PA blunting is detectable from ~200mL, per "
+                 "Moskowitz H, Platt RT, Schachar R, et al., 'Roentgen visualization of minute pleural "
+                 "effusion,' Radiology 1973;109(1):33-35 (lateral-view blunting is more sensitive, "
+                 "~75mL, per secondary sources citing the same study -- the original was not directly "
+                 "confirmed for that specific number). This is a volume, not a linear dimension, and "
+                 "converting it to a 'characteristic diameter' would need a geometric assumption not "
+                 "attempted here. size_mm and delta_d remain unsourced NOMINAL placeholders. (An "
+                 "earlier version of this note miscited an AJR paper about *supine* radiographs for "
+                 "this *erect*-view number -- corrected 2026-08-15.)",
         ),
         FindingSpec(
             "fibrotic_band", "Fibrotic band / scarring", 0.080, 0.035, 5.0, 2.5,
-            note="Post-primary sequela; thin and moderate contrast.",
+            note="Post-primary sequela; thin and moderate contrast. No specific citable linear-mm "
+                 "size was found in this session. size_mm and delta_d are both still unsourced "
+                 "NOMINAL placeholders.",
         ),
     )
 }
