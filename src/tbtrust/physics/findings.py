@@ -12,12 +12,13 @@ contrast in the table is **computed** from a one-line radiographic-physics model
 whose every input is a published constant, and each entry carries
 `source="DERIVED-SLAB-v1"`. What that buys and what it does not:
 
-    ΔD  =  (γ · C_s / ln 10) · (μ/ρ) · Δρ · t                        (the model)
+    Delta-D = (gamma * C_s / ln 10) * (mu/rho) * Delta-rho * t       (the model)
 
-* `γ` -- film average gradient, the slope of the H&D curve, so ΔD = γ·Δlog₁₀E.
+* `gamma` -- film average gradient, the slope of the H&D curve, so
+  Delta-D = gamma * Delta-log10(E).
 * `C_s` -- scatter contrast-degradation factor, C_s = 1/(1 + SPR).
-* `(μ/ρ)` -- mass attenuation coefficient at the beam's effective energy.
-* `Δρ` -- the density step the finding makes against the lung it displaces.
+* `(mu/rho)` -- mass attenuation coefficient at the beam's effective energy.
+* `Delta-rho` -- the density step the finding makes against the lung it displaces.
 * `t` -- the finding's thickness along the beam, taken as `size_mm`.
 
 This is Beer-Lambert through a homogeneous slab, composed with the film's
@@ -50,7 +51,7 @@ particular -- needs re-running before it is quoted.
 measurement, and the model is deliberately crude: it assumes a monoenergetic
 effective beam, a homogeneous lesion, no beam hardening, and that everything
 outside the lesion is common-mode and cancels in the difference. Two of the five
-inputs (`γ`, `C_s`) are equipment-dependent and are carried as ranges, not point
+inputs (`gamma`, `C_s`) are equipment-dependent and are carried as ranges, not point
 values. So `delta_d` is now *traceable* rather than *invented* -- an auditable
 number with an error bar -- and `delta_d_sigma` is the propagated uncertainty of
 the model inputs together with the spread of presentations in `size_sigma_mm`.
@@ -93,7 +94,7 @@ rest on a traceable number rather than an invented one, but they inherit its
 error bar, which is not small: the three shared constants alone put ≈24%
 relative on every contrast, before either the per-finding density step or the
 spread of presentations is added, and the whole table currently lands between 47%
-and 73% relative. Worse, the two equipment constants (`γ`, `C_s`) shift *all*
+and 73% relative. Worse, the two equipment constants (`gamma`, `C_s`) shift *all*
 findings together, so a systematic error there moves every verdict in the same
 direction rather than averaging out across the rows of one certificate.
 `FindingSpec.delta_d_sigma` is what carries this into the reported margin. Quote
@@ -111,7 +112,6 @@ from dataclasses import dataclass, replace
 from pathlib import Path
 
 import numpy as np
-
 
 # --------------------------------------------------------------------------- #
 # derivation constants -- every one of these is a published number, with the
