@@ -108,3 +108,52 @@ field deployment regardless of how carefully the splits are done.
 This is a research tool. It is not validated, not regulated, not approved, and
 not for diagnosis. See `docs/DEPLOYMENT_CHECKLIST.md` for what would have to be
 true before any clinical use.
+
+## 10. The falsification test currently fails, in the unsafe direction
+
+`python scripts/validate_physics.py` (full, not `--quick`), run 2026-08-15: median
+predicted/empirical detectability ratio is **0.50** (IQR 0.12–1.90), with only 31% of the 16
+severity×finding conditions individually passing. `ratio < 1` means the certificate can pass a
+photograph an optimal detector cannot actually read — the dangerous direction, and the opposite
+of the ≈1.7 previously stated in `docs/PHYSICS.md`, which came from an unrepresentative
+`--quick` run. **The certificate must not be deployed as a safety valve until this is fixed.**
+
+The channel-recovery numbers point to why: veil-fraction estimation error is small while
+fiducial coverage is `full` (≈−0.01) and collapses to ≈−0.73 once severity degrades coverage to
+`none`, with `density_abs_rmse` more than doubling over the same range. The blind estimator has
+no reliable fallback for the glare field once the beam-stop rim that measures it is lost, so the
+reported floor stays too small exactly when the photo is worst. This is broad, not narrow: by
+severity 0.75, three of the four findings sit far below 1 (`miliary_nodule` 0.07, `cavity_wall`
+0.12, `consolidation` 0.12), and for `cavity_wall`/`consolidation` the underlying linear fit is
+still good (R² = 0.96, 0.92) there — so this is a real miscalibration, not test noise. The test's
+own contrast-probe bracket, centred on the model's own predicted floor
+(`physics/validate.py:308-315`), is a separate, narrower problem: it specifically wrecks the fit
+(R² < 0.7) only for `miliary_nodule` at severity 0.5 and `cavity_wall` at severity 0.5, and the
+exact ratios at those two cells shouldn't be quoted at face value. See `docs/PHYSICS.md` §3 for
+the full per-condition breakdown.
+
+**Closes when:** the channel estimator gets a real fallback for lost beam-stop coverage (or the
+certificate abstains earlier, before coverage fully drops, rather than continuing to assert a
+floor computed from a degraded fit), and `detectability_experiment`'s probe bracket is decoupled
+from its own prediction so the reported ratio isn't self-referential.
+
+## 11. The fiducial coverage audit likely overstates real coverage
+
+`scripts/audit_fiducials.py` reported 32.1% certifiable (full+partial) on the aggregated Kaggle
+corpus (`outputs/fiducial_audit.csv/.json`), and that number decided the real-photo-vs-simulated
+path (§ "Decide the path", below 50% → simulated re-photography). Visual QA of the detections
+(`outputs/figures/11_fiducials_real.png` and a 9-image ad hoc sample, 2026-08-15) found the
+collimation-border/beam-stop detector systematically false-positive on ordinary chest anatomy:
+`detect_collimation` (`physics/fiducials.py:245-308`) accepts any image where the outer 3%
+border strip is ≥0.12 brighter than the darkest 5% of the centre, which lung fields satisfy on
+their own with no real film border present. 9/9 sampled `partial`-coverage images showed the
+detected "beam stop" landing on lung tissue, not a genuine direct-exposure region.
+
+The qualitative verdict (simulated re-photography path) is not in question — a lower true
+coverage rate only reinforces it — but the 32.1% figure, and the `partial` bucket specifically,
+should be reported as a likely overestimate rather than a clean measurement until the detector
+is hardened and re-validated.
+
+**Closes when:** `detect_collimation`/`detect_beamstop` require the bright border to be
+low-variance/uniform (not merely brighter than the darkest interior pixels) and are re-validated
+against images with known ground truth, then the audit is re-run for a trustworthy number.
