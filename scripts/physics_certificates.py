@@ -108,9 +108,13 @@ def main() -> int:
                          "photographing a 35 cm film at 3000 px gets ~8 px/mm; at 320 px it gets "
                          "0.8, so a 2 mm miliary nodule is under two pixels and the certificate "
                          "correctly but uselessly calls every image insufficient. At 1024 the "
-                         "sweep separates properly -- miliary marginal on a clean capture, "
-                         "insufficient once degraded, larger findings still carried. Costs about "
-                         "2 s per image.")
+                         "per-finding sweep separates properly -- infiltrate, cavity_wall and "
+                         "consolidation all fall monotonically with severity. Note since the "
+                         "2026-08-16 derived contrasts (physics/findings.py) miliary_nodule no "
+                         "longer clears the floor even on a clean capture, so the *top-line* "
+                         "verdict, which is the worst finding, saturates at insufficient and "
+                         "only the per-finding columns are informative. Costs about 1.6 s per "
+                         "certificate at 1024 (measured, single core).")
     ap.add_argument("--limit", type=int, default=None)
     ap.add_argument("--split", default=None, help="restrict to one manifest split")
     ap.add_argument("--findings", default=None,
