@@ -172,8 +172,8 @@ def test_physics(rng):
 
     The physics track has no third-party dependency and no torch requirement, so
     it belongs in the torch-free core of the smoke test. The assertions are the
-    ordering properties that must hold whatever the nominal finding contrasts in
-    `physics/findings.py` are set to -- a worse capture must produce a higher
+    ordering properties that must hold whatever the finding contrasts in
+    `physics/findings.py` come out to -- a worse capture must produce a higher
     floor and a smaller margin. `scripts/validate_physics.py` is the real
     quantitative check.
     """
