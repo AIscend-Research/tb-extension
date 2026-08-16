@@ -214,6 +214,56 @@ mid-run for the 1536px point only); the table above is the corrected re-run with
 parameters throughout. A proper version of this result would use multiple seeds per resolution
 and a severity sweep, not a single point.
 
+### Severity dose-response on real NLM films, derived contrasts (2026-08-16)
+
+The first certificate run on the real corpus rather than a Kaggle-aggregate sample, and the first
+under the derived `delta_d`. `scripts/physics_certificates.py --size 1024` over severities
+0–1, simulate mode, on all 276 images of the NLM manifest available at run time (Montgomery 138,
+Shenzhen 138 — the Shenzhen half was a class-balanced sample; the corpus has since been completed
+to 662). 1380 certificates, ~1.6 s each. Note this sweeps **severity at fixed resolution**, the
+orthogonal axis to the resolution sweep above, so it does not replace that table — which remains
+stale and un-re-run.
+
+P(detectable) per finding, n=276 per row:
+
+| severity | miliary_nodule | cavity_wall | infiltrate | consolidation |
+|---|---|---|---|---|
+| 0.00 | 0.00 | 0.20 | 0.54 | 0.97 |
+| 0.25 | 0.00 | 0.12 | 0.34 | 0.82 |
+| 0.50 | 0.00 | 0.09 | 0.20 | 0.69 |
+| 0.75 | 0.00 | 0.06 | 0.15 | 0.63 |
+| 1.00 | 0.00 | 0.05 | 0.08 | 0.61 |
+
+Three things worth reading off it.
+
+**The certificate's top-line verdict is saturated.** `miliary_nodule` is never detectable, at any
+severity, including a *clean* capture — its derived contrast (0.018) sits below the clean median
+floor (0.066) by 11 dB. Since the certificate verdict is the worst line item, every one of the
+1380 images certifies INSUFFICIENT and the top-line severity curve is flat and uninformative.
+Only the per-finding columns carry signal. This is a direct consequence of the derived contrasts
+(§ `findings.py`): under the old placeholder 0.030 the miliary margin was 5 dB less negative, and
+the top line still saturated, so this is not new — the derivation made it starker, not true.
+
+**`cavity_wall` is now the second-hardest target, not the second-easiest.** 0.20 detectable on a
+clean capture. Under the old 0.220 placeholder it cleared the floor comfortably; at the derived
+0.040 it clears it only where the floor is unusually low. If a reviewer challenges one number in
+`findings.py`, it should be this one — the wall-vs-lumen density step is defensible, but 3.4 mm
+of path is doing all the work and the value moves 5.5× on that modelling choice alone.
+
+**Fiducial loss, not noise, is what ends the measurement.** The abstain rate climbs 0% → 14% →
+25% → 34% → 36% across the sweep: by severity 0.5 a quarter of images no longer expose a beam
+stop the estimator can find, and the certificate correctly refuses rather than guessing. Among the
+images that *are* scored, the limiting factor is `veil_fit` on 80.5%, `sensor_noise` on 17.2% and
+`quantization` on 2.1% — so both ends of the failure mode, the abstains and the scored floors, are
+dominated by glare estimation rather than by photon noise. The leading bias in limitation 1 below
+is therefore the one that matters most in practice.
+
+The two clinics behave the same — at severity 0.5, consolidation is carried on 0.68 of Montgomery
+and 0.70 of Shenzhen images — so nothing here is a site effect. **Caveats:** one seed per cell, no
+repeat-noise estimate, and simulate mode means these are *photographs of films we synthesized from
+archive PNGs*, not photographs of films. `scripts/audit_fiducials.py` on the real archives is what
+tells you whether the fiducial-loss curve above transfers at all.
+
 ---
 
 ## 4. Known limitations, in order of how much they should worry you
