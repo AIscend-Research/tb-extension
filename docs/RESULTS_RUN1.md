@@ -124,13 +124,39 @@ re-photography (the real-photo path is unavailable — see §1).
 | 1.00 | 0.29 | 0.71 | 0.00 | 0.00 | −12.8 | 1.00 | 0.00 |
 
 `detectable = 0.00` at **every** severity including zero, and `retake = 1.00`
-everywhere. The certificate declares a pristine synthetic capture insufficient
-and instructs a retake on 100% of photographs. As a triage gate it currently
-carries no information: it fires identically on a perfect image and a ruined
-one, and the margin moves only 2.8 dB across the whole severity range.
+everywhere.
 
-The retake/refer split is degenerate for the same reason — nothing is ever
-referred, because nothing is ever certified as readable.
+The aggregate column is misleading on its own, and the per-finding breakdown in
+`docs/figures/run1/06_certificate.png` says why. On a clean capture with full
+fiducial coverage, **six of seven findings clear the floor**:
+
+| finding | margin | floor (OD) | contrast (OD) |
+|---|---|---|---|
+| miliary nodule | **−7.1 dB** | 0.040 | 0.0177 |
+| small nodule | +5.0 dB | 0.030 | 0.0531 |
+| patchy infiltrate | +7.1 dB | 0.029 | 0.0663 |
+| cavity wall | +2.0 dB | 0.031 | 0.0398 |
+| lobar consolidation | +22.7 dB | 0.029 | 0.3981 |
+| pleural effusion | +18.5 dB | 0.029 | 0.2455 |
+| fibrotic band | +3.4 dB | 0.030 | 0.0442 |
+
+So the certificate is not uninformative — it discriminates across findings by
+30 dB. What is degenerate is the **aggregation rule**: the headline verdict
+reports the worst-case finding, and miliary nodule (2 mm at 0.0177 OD under
+`DERIVED-SLAB-v1`) sits below a floor of ~0.03–0.04 OD in every condition
+tested. One finding therefore drives `detectable = 0.00` and `retake = 1.00`
+everywhere, hiding six positive margins behind it.
+
+Two consequences for the paper. First, report the per-finding margin table, not
+the aggregate verdict — the aggregate is dominated by a single target that no
+phone capture at this resolution can carry. Second, the retake/refer split is
+untestable while the aggregate is pinned: nothing is ever referred because
+nothing is ever certified readable. Either exclude miliary from the aggregate
+and state that, or quote the verdict per finding.
+
+This is also the direct consequence of retiring the NOMINAL table. Miliary
+contrast fell from 0.030 to 0.0177 OD (0.59x) under the derived slab model,
+which moved it from just above a ~0.03 OD floor to clearly below it.
 
 ## 6. Per-clinic domain shift
 
@@ -186,6 +212,29 @@ The accompanying patch adds `--seeds` (default 5), classifies conditions as
 `degenerate` (zero discrimination) or `unphysical` (floor above 4.0 OD) instead
 of dropping them, reports per-seed medians and the across-seed spread, and fails
 the gate on instability or censoring rather than only on the point estimate.
+
+## 9. Figures — the real-image half did not run
+
+`scripts/make_figures.py --manifest ...` produced **9 of 12** figures, all from
+the synthetic film. The three real-image figures (normal-vs-TB gallery, fiducial
+overlay on an archived radiograph, degradation ladder on a real film) were
+skipped:
+
+```
+real dataset images
+  (manifest unreadable or empty; skipped)
+```
+
+`_real_images` returns `None` when `pd.read_csv` raises `OSError` — i.e. the
+manifest was not at the path given. Rebuild the manifest in the same session
+before calling the script; the figures cell alone is not self-sufficient.
+
+The nine produced figures are committed under `docs/figures/run1/`.
+
+**Known defect in `06_certificate.png`:** the "How this was measured" provenance
+block and the RETAKE instruction box overlap, rendering both partly illegible in
+the lower-left panel. Needs a layout fix in `physics/figures.py` before the
+figure is publication-usable.
 
 ## Status by roadmap box
 
