@@ -213,6 +213,41 @@ The accompanying patch adds `--seeds` (default 5), classifies conditions as
 of dropping them, reports per-seed medians and the across-seed spread, and fails
 the gate on instability or censoring rather than only on the point estimate.
 
+### The 5-seed result under DERIVED-SLAB-v1
+
+`python scripts/validate_physics.py --seeds 5`, 80 conditions (5 seeds x 4
+severities x 4 findings), size 320, 24 trials per contrast level.
+
+| quantity | value |
+|---|---|
+| pooled median ratio | **1.11** (tolerance 0.4–3.0 — passes) |
+| per-seed medians | 0.45, 1.81, 0.82, 1.95, 0.96 |
+| across-seed spread (max/min) | **4.32** (limit 2.0 — fails) |
+| IQR of ratio | [0.29, 2.44] |
+| degenerate / unphysical | 4 / 80 and 4 / 80 |
+| conditions passing individually | 25% |
+| median linearity R² | 0.96 |
+
+This is the whole argument in one table. The pooled median lands at 1.11 —
+almost exactly the ideal 1.0, and comfortably inside tolerance. Quoted alone it
+would read as a clean validation of the bound.
+
+It is not one. The five per-seed medians span 0.45 to 1.95. A single-seed run of
+identical code reports "dangerously optimistic" or "conservative and safe"
+depending only on the seed, and the pooled figure is an average across that
+contradiction. The interquartile range of individual conditions, [0.29, 2.44],
+straddles 1.0 by nearly an order of magnitude.
+
+**Therefore: the calibration ratio is not currently a measurement, and no value
+for it — including 1.11 — should appear in the paper as the bound's
+calibration.** The detector's d' is genuinely linear in contrast (median R² =
+0.96), so the experiment is sound; the instability is in the channel estimator,
+consistent with the veil error growing from −0.02 at severity 0 to −1.12 at
+severity 0.75 reported in `channel_recovery.csv`.
+
+The gate now fails this run (exit 1) on spread and on censoring, while the old
+code would have reported 1.11 and passed.
+
 ## 9. Figures — the real-image half did not run
 
 `scripts/make_figures.py --manifest ...` produced **9 of 12** figures, all from

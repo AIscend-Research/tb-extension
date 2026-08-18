@@ -1,0 +1,83 @@
+{
+  "config": {
+    "size": 320,
+    "trials": 24,
+    "n_images": 8,
+    "severities": [
+      0.0,
+      0.25,
+      0.5,
+      0.75,
+      1.0
+    ],
+    "quick": false,
+    "seeds": [
+      0,
+      1,
+      2,
+      3,
+      4
+    ]
+  },
+  "fiducials": {
+    "coverage_full_frac": 0.275,
+    "marker_iou_median": 0.0,
+    "corner_err_px_median": 1.001758992783619,
+    "usable_mtf_edge_frac": 1.0
+  },
+  "channel": {
+    "n_rows": 40,
+    "veil_fraction_err_median": -0.44441954748915324,
+    "veil_fraction_err_mad": 0.3711786113120782,
+    "veil_fraction_err_abs_median": 0.44441954748915324,
+    "psf_sigma_rel_err_median": -0.1497088019776609,
+    "psf_sigma_rel_err_mad": 0.09749755899640664,
+    "psf_sigma_rel_err_abs_median": 0.1497088019776609,
+    "density_abs_rmse_median": 0.6207309209626946,
+    "density_abs_rmse_mad": 0.23516826149553122,
+    "density_abs_rmse_abs_median": 0.6207309209626946,
+    "density_diff_rmse_median": 0.5647607426955468,
+    "density_diff_rmse_mad": 0.19059359495951858,
+    "density_diff_rmse_abs_median": 0.5647607426955468,
+    "coverage_full_frac": 0.275
+  },
+  "detectability": {
+    "n_conditions": 80,
+    "n_usable": 76,
+    "n_degenerate": 4,
+    "n_unphysical": 4,
+    "degenerate_frac": 0.05,
+    "median_ratio": 1.1104637177836736,
+    "iqr_ratio": [
+      0.2922359573111892,
+      2.4359872681166888
+    ],
+    "median_ratio_per_seed": {
+      "0": 0.4526911897936361,
+      "1": 1.813393803272043,
+      "2": 0.8194177225552929,
+      "3": 1.9536098891705955,
+      "4": 0.9562482404728287
+    },
+    "across_seed_spread": 4.315546520932225,
+    "pass_frac": 0.25,
+    "median_linearity_r2": 0.9613212926235752
+  },
+  "ordering": {
+    "margin_db_by_severity": {
+      "0.0": -24.414698790285627,
+      "0.25": -21.60930095463565,
+      "0.5": -23.283935404981733,
+      "0.75": -25.100349658345003,
+      "1.0": -24.011625922200896
+    },
+    "margin_falls_monotonically": false,
+    "insufficient_frac_by_severity": {
+      "0.0": 1.0,
+      "0.25": 1.0,
+      "0.5": 1.0,
+      "0.75": 0.75,
+      "1.0": 0.75
+    }
+  }
+}
