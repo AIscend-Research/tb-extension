@@ -272,12 +272,62 @@ def invert(
     px_per_mm: float | None = None,
     gamma_prior: float = T.GAMMA_PRIOR,
     gamma_sigma: float = T.GAMMA_PRIOR_SIGMA,
+    aids: bool | tuple[str, ...] = False,
 ) -> CalibratedFilm:
-    """Invert one photo to calibrated optical density. See the module docstring."""
+    """Invert one photo to calibrated optical density. See the module docstring.
+
+    `aids=True` looks for the two objects `docs/DEPLOYMENT_CHECKLIST.md` B2 asks a
+    clinic to put on the lightbox -- a step wedge and a ruler -- and uses whichever
+    it finds: the wedge's known densities turn gamma from an sRGB prior into a
+    fitted parameter with an error bar, and the ruler's tick pitch settles
+    px_per_mm exactly instead of inferring it from an assumed cassette diagonal.
+    Off by default, because looking for them costs a connected-component pass and
+    most archives have neither. `scripts/measure_fiducial_value.py` measures what
+    each one buys.
+    """
     film = film or FilmModel()
     v = _normalize(photo)
     h, w = v.shape
     fid = fid if fid is not None else detect(v)
+
+    aid = None
+    if aids is not False and aids is not None:
+        from dataclasses import replace as _replace
+
+        from . import aids as A
+
+        # `aids=True` means both; a tuple selects them individually, which is what
+        # lets an experiment attribute a change to one object rather than to the
+        # pair -- see scripts/measure_fiducial_value.py.
+        # `aids=()` is a real request, not an empty one: it means the objects are
+        # in frame but neither is to be used. That arm exists because a photograph
+        # framed wide enough to include them already changes one thing on its own
+        # -- the base-fog anchor now has bare lightbox in it -- and attributing
+        # that to the wedge or the ruler would overstate what either buys.
+        want = ("wedge", "ruler") if aids is True else tuple(aids)
+        unknown = set(want) - {"wedge", "ruler"}
+        if unknown:
+            raise ValueError(f"unknown aids {sorted(unknown)}; expected 'wedge' and/or 'ruler'")
+        aid = A.read_aids(v, fid, film, want_wedge="wedge" in want, want_ruler="ruler" in want)
+        if aid.base_anchor_mask is not None and fid.outside_mask is not None:
+            # Restrict the base-fog anchor to the sheet's own margin. A frame wide
+            # enough to include a wedge and a ruler is also wide enough to include
+            # bare lightbox, which is 1.6x brighter than base+fog and would pull
+            # the whole density scale with it.
+            band = np.asarray(fid.outside_mask, dtype=bool) & np.asarray(aid.base_anchor_mask, dtype=bool)
+            if band.sum() > 50:
+                fid = _replace(fid, outside_mask=band)
+        if aid.exclusion_mask is not None and fid.outside_mask is not None:
+            # The wedge is taped where the clear film margin is, and that margin is
+            # the D_min anchor the whole density scale hangs from. Leaving the strip
+            # inside the mask would drag that anchor toward the wedge's own
+            # densities -- turning the aid meant to remove a systematic error into a
+            # new one, in the one measurement that was supposed to be exact.
+            keep = np.asarray(fid.outside_mask, dtype=bool) & ~np.asarray(aid.exclusion_mask, dtype=bool)
+            if keep.sum() > 50:
+                fid = _replace(fid, outside_mask=keep)
+        if px_per_mm is None and aid.has_ruler:
+            px_per_mm = float(aid.px_per_mm)
 
     tau_min = float(density_to_transmittance(film.d_min))
     tau_max = float(density_to_transmittance(film.d_max))
@@ -298,6 +348,8 @@ def invert(
     # measured, and from the second iteration the dark anchor carries a real
     # target luminance and c0 converges to the ISP's actual black level.
     all_anchors = T.anchors_from_fiducials(v, fid, film)
+    if aid is not None and aid.has_wedge:
+        all_anchors = all_anchors + aid.anchors
     bright = [a for a in all_anchors if a.name != "direct_exposure"]
     tone = T.fit_tone(bright or all_anchors, film, gamma_prior, gamma_sigma)
     veil = np.zeros((h, w))
@@ -317,6 +369,13 @@ def invert(
         )
         veil = glare.veil
         anchors = T.anchors_from_fiducials(v, fid, film, veil=veil, illumination=illum)
+        if aid is not None and aid.has_wedge:
+            # Re-evaluated against the current veil and illumination fields where
+            # the strip actually sits. The wedge is on the lightbox beside the
+            # film, so it sees a different part of both than the film's own
+            # anchors do, and reusing the first iteration's values would import
+            # the lightbox gradient straight into gamma.
+            anchors = anchors + aid.refreshed(veil, illum).anchors
         tone = T.fit_tone(anchors, film, gamma_prior, gamma_sigma)
 
     # --- final densities
