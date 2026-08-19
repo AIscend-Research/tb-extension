@@ -44,6 +44,7 @@ from tbtrust.physics.film import simulate
 from tbtrust.physics.floor import FloorSpec
 from tbtrust.physics.invert import invert
 from tbtrust.physics.triage import triage
+from tbtrust.utils.seed import capture_seed
 
 
 def _load(path: str, size: int | None) -> np.ndarray | None:
@@ -68,7 +69,7 @@ def process(
     img = _load(path, size if simulate_capture else None)
     if img is None:
         return None
-    rng = np.random.default_rng(abs(hash((path, severity, seed))) % (2**32))
+    rng = np.random.default_rng(capture_seed(path, severity, seed))
 
     if simulate_capture:
         photo, _truth = simulate(img, severity=severity, rng=rng, size=size)

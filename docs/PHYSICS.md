@@ -264,6 +264,62 @@ repeat-noise estimate, and simulate mode means these are *photographs of films w
 archive PNGs*, not photographs of films. `scripts/audit_fiducials.py` on the real archives is what
 tells you whether the fiducial-loss curve above transfers at all.
 
+### Physics-gated deferral against a trained checkpoint (2026-08-19)
+
+Notebook 08 previously fitted a stand-in logistic regression so it would run standalone. This is
+the first pass with real, temperature-scaled probabilities:
+`scripts/physics_deferral_real.py` over `outputs/rnd_clean_s0/montgomery/best.ckpt` (TB-Net,
+random split, trained clean, no uncertainty head), 120 held-out test images x 5 severities = 600
+certificates at 1024 px. Both readings come off one `film.simulate` call per row, so the margin
+and the probability describe the *same* photograph — `utils/seed.capture_seed` exists for that
+and `physics_certificates.py` now uses it too, since `hash()` is salted per process and the
+capture could not otherwise be regenerated. Temperature, the MC-dropout confidence map and the
+deferral threshold are all fitted on the model's validation split and applied unchanged, as in
+`eval/run.py`.
+
+**Read the control first.** The checkpoint scores 0.80 on those same held-out images as it was
+trained to see them, and **0.49 — chance — once they are re-photographed** through the capture
+model. The fitted temperature runs to the search bound (20), i.e. the logits carry almost no
+signal on this input. A model trained on clean archive PNGs does not survive the
+film-photograph shift at all.
+
+| ranking signal | AURC |
+|---|---|
+| physics (certificate margin) | 0.4997 |
+| mc_dropout | 0.5013 |
+| physics-gated learned | 0.5067 |
+| confidence, max(p, 1-p) | 0.5096 |
+
+Everything sits at 0.50 because the errors being ranked are coin flips: **the AURC comparison is
+not yet a measurement of anything**, and the physics "winning" it is noise. The same applies to
+complementarity — 45 errors flagged only by the physics against 48 only by the learned score,
+Jaccard 0.10, r = -0.20. The low overlap does show the two signals rank different images, which
+is the orthogonality claim; the error counts do not show it is the *confident-and-wrong* cases
+being caught, because the top 20% of 600 rows catches ~61 of 304 errors by construction. That
+number becomes evidence only against a checkpoint that is better than chance on captures.
+
+**The triage split is the one result here that stands**, because it needs no classifier — it is
+measured off the capture:
+
+| gate | retake | refer | report |
+|---|---|---|---|
+| top-line verdict (worst finding) | 1.000 | 0.000 | 0.000 |
+| `infiltrate` line | 0.687 | 0.128 | 0.185 |
+
+The top-line row is the saturation above restated as a policy: a 100% retake rate is a statement
+about 2 mm nodules at 1024 px, not about the photographs, and no clinic would run it. Gated on
+the finding a screening read is actually after, roughly two thirds of captures are worth
+retaking, an eighth are unfixable and go to referral, and a sixth are good enough to report —
+with the referral share coming from the val-tuned threshold rather than 0.5, since `max(p, 1-p)`
+is >= 0.5 by construction and comparing against 0.5 deletes the REFER path entirely. The
+retake instructions are specific: `veil_fit` (shade the lightbox), `sensor_noise` (fill the
+frame, no digital zoom), `no_fiducials` (photograph the whole sheet).
+
+Caveats: the per-finding split inherits the top-line `limiting_factor`, because the certificate
+table carries no per-finding limiting factor; one seed per cell; and simulate mode throughout.
+**The prerequisite for the first two numbers meaning anything is a checkpoint trained through
+the degradation pipeline** — that is the next run, not a caveat to be written around.
+
 ---
 
 ## 4. Known limitations, in order of how much they should worry you
