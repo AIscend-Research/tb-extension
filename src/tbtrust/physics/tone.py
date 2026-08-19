@@ -172,7 +172,19 @@ def fit_tone(
         best = None
         chis = []
         for g in grid:
-            c0, c1, chi2, rms = _solve_linear(anchors, float(g), film)
+            # The black point stays pinned at zero even here, and that is not an
+            # oversight carried over from the two-anchor case. `c0` and a spatially
+            # constant veil are exactly degenerate whatever the anchor count: a
+            # third density identifies *gamma*, not the split between black level
+            # and pedestal. Freeing c0 alongside gamma lets the tone curve swallow
+            # the veil -- the linearised beam stop then reads near zero, the next
+            # iteration measures less glare, and the loop walks toward the same
+            # confident veil-free wrong answer the two-anchor branch is careful to
+            # avoid. Measured on the forward model, freeing it improved the fitted
+            # gamma and roughly doubled the recovered density error at the same
+            # time (scripts/measure_fiducial_value.py), which is precisely the
+            # trade the pinning exists to refuse.
+            c0, c1, chi2, rms = _solve_linear(anchors, float(g), film, fix_black=True)
             # Keep the prior in play as a weak regulariser so a noisy third anchor
             # cannot drag gamma somewhere unphysical.
             pen = chi2 + ((g - gamma_prior) / (3 * gamma_sigma)) ** 2

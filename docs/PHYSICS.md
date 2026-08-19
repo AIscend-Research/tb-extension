@@ -320,6 +320,80 @@ table carries no per-finding limiting factor; one seed per cell; and simulate mo
 **The prerequisite for the first two numbers meaning anything is a checkpoint trained through
 the degradation pipeline** — that is the next run, not a caveat to be written around.
 
+### What the two cheap fiducials buy (2026-08-19)
+
+`DEPLOYMENT_CHECKLIST.md` B2 asks a clinic for two objects costing pennies — a step wedge taped
+beside the film, and a ruler in the frame — on the grounds that the first turns γ from an sRGB
+prior into a fitted parameter and the second settles `px_per_mm` exactly. Both claims were
+plausible and neither had a number. `scripts/measure_fiducial_value.py` produces them: the same
+photograph inverted six ways, nothing changing between arms except which information the
+estimator is allowed to use. 216 photographs — 6 films × 3 severities × 4 true ISP exponents
+(1.8–3.0, so the prior is sometimes exactly right and sometimes badly wrong) × 3 collimation
+tightnesses (which is what makes the assumed cassette diagonal wrong in the field).
+
+`physics/aids.py` is the deployment half: finding both objects in a photograph with no side
+information, and `invert(..., aids=True)` using whichever it finds.
+
+| arm | \|γ err\| | γ 2σ coverage | \|px/mm err\| | D abs MAE | D diff MAE | margin |
+|---|---|---|---|---|---|---|
+| baseline | 0.400 | 0.75 | 0.071 | 0.115 | 0.067 | −13.83 dB |
+| framing | 0.400 | 0.75 | 0.071 | 0.115 | 0.061 | −14.03 dB |
+| **wedge** | 0.647 | 0.66 | 0.071 | 0.193 | 0.097 | −13.44 dB |
+| **ruler** | 0.400 | 0.75 | **0.013** | 0.115 | 0.061 | −14.04 dB |
+| both | 0.647 | 0.66 | 0.013 | 0.193 | 0.097 | −13.49 dB |
+| oracle | 0.000 | 1.00 | 0.000 | 0.101 | 0.056 | −13.85 dB |
+
+Medians over all 216. `oracle` is handed the true γ and the true scale — what the two aids would
+buy if each worked perfectly. `framing` is the control that matters for attribution: the aids in
+frame, neither used.
+
+**The ruler works, unconditionally.** It cuts the scale error from 7.1% to 1.3%, at every true γ
+and every collimation, and it is read from the tick *pitch* rather than the ruler's length, so
+cropping one end costs nothing. Tape a ruler to the lightbox.
+
+**The wedge, as currently read, does not pay.** It makes the fitted γ *worse* on average — 0.647
+against the prior's 0.400 — and its 2σ interval covers the truth less often than the prior's
+does (0.66 vs 0.75), which means the error bar it produces is not yet quotable. Broken down by
+the true exponent, it only wins where the prior is badly wrong:
+
+| true γ | prior \|err\| | wedge \|err\| |
+|---|---|---|
+| 1.8 | 0.40 | 0.65 |
+| 2.2 | 0.00 | 0.98 |
+| 2.6 | 0.40 | 0.65 |
+| 3.0 | 0.80 | **0.25** |
+
+The fitted γ is biased low by roughly 0.35–0.7, so it beats a prior of 2.2 only when the ISP's
+real exponent is well above 2.2. Two candidate causes, both testable and neither yet separated:
+the ISP's contrast S-curve, which the estimator's power law cannot represent and which the
+wedge's 21 steps sample across the whole range where the film's own two anchors only sample the
+ends; and the veil where the wedge sits, which is *outside* the collimated field, where the veil
+surface fitted from the beam stop is an extrapolation. The obvious next experiment is a wedge
+inside the field — which is exactly what the phantom in `REAL_RECAPTURE.md` does.
+
+**Neither aid changes a single certificate verdict** in 216 photographs (one flip out of 216 for
+the ruler arm). The margins move by 0.2–0.4 dB. That is the most useful number here and the most
+deflating: at this severity range the floor is dominated by the veil term, not by γ or by scale,
+so improving either moves the inputs without moving the decision. A wedge and a ruler are still
+worth the pennies — they remove real error and the scale error especially is silent — but the
+thing to fix if the goal is a better certificate is `glare.py`, not the tone curve.
+
+**One bug found by the measurement.** `tone.fit_tone` freed the black point `c0` as soon as three
+distinct densities were available. That reopens exactly the degeneracy the two-anchor branch is
+careful to avoid: `c0` and a spatially constant veil are indistinguishable however many anchors
+there are, so the tone curve absorbs the veil, the linearised beam stop reads near zero, and the
+loop walks toward a confident veil-free wrong answer. Measured, freeing it improved the fitted γ
+and roughly doubled the recovered density error at the same time. The three-point branch now
+keeps `c0` pinned. The cost of pinning is stated rather than hidden: against an ISP with a real
+0.02 black pedestal the fit absorbs it into γ, biasing it by up to 0.18 — the script reports that
+figure alongside the 0.015 it achieves with no pedestal, so the trade is visible.
+
+**Caveats.** All in silico, on `film.py`, with the limitation in § 4.7 applying in full. The
+detector for both aids is new and its failure modes are its own: it locks onto the one monotone
+staircase outside the field (ranking strips by size instead picks the *ruler* and reads 21
+identical "steps" off it, which is how this was first got wrong), and it rejects a tick train
+whose intervals are irregular, because a scale error is silent.
+
 ---
 
 ## 4. Known limitations, in order of how much they should worry you
