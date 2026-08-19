@@ -136,6 +136,8 @@ of that track can claim, and it needs no model and no GPU:
 ```bash
 python scripts/audit_fiducials.py --manifest data/processed/manifest.csv --out outputs/fiducial_audit
 python scripts/validate_physics.py --quick     # the experiments that could falsify the bound
+python scripts/make_phantom_film.py           # the printable phantom, for real phone captures
+python scripts/validate_real_recapture.py --phantom outputs/phantom --dry-run
 ```
 
 For the paper's figures — the capture-chain schematic, the sign-convention
@@ -181,7 +183,8 @@ scripts/            download_data, build_manifest, clinic_stats, smoke_test,
                     train, evaluate, train_ensemble, benchmark_efficiency,
                     evaluate_adversarial_robustness, ablate_degradation,
                     run_experiments, audit_fiducials, validate_physics,
-                    physics_certificates, make_figures
+                    physics_certificates, make_figures,
+                    make_phantom_film, validate_real_recapture
 src/tbtrust/
   data/             degradation pipeline, manifest + provenance, LOCO splits,
                     torch Dataset, per-clinic shift statistics

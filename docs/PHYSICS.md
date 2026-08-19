@@ -357,8 +357,21 @@ the degradation pipeline** — that is the next run, not a caveat to be written 
    guess (`MARKER_ACCEPT = 0.6`), because a false marker feeds the illumination fit a bogus
    interior sample. Losing it costs less than it sounds: the unexposed film outside the
    collimation border is the same `D_min` density and wraps the whole frame.
-7. **All in silico.** Simulated degradation, no real phone recaptures. Same caveat as the rest
-   of the project — see [`LIMITATIONS.md`](LIMITATIONS.md).
+7. **All in silico.** Simulated degradation, no real phone recaptures. Every number in this
+   document is the estimator scored against `film.py`, the forward model in this same package:
+   a closed loop, which cannot detect an assumption that is wrong about the world rather than
+   wrong internally. The four assumptions most likely to be wrong that way — a power-law ISP
+   curve, a Gaussian glare halo, shot-plus-read sensor noise, and JPEG as the whole codec story
+   — would each, if wrong in the direction that matters, make the certificate *optimistic*.
+
+   The instrument for closing this is built and dry-run: a printable phantom
+   (`scripts/make_phantom_film.py`) carrying the three fiducials, a detectability grid, a
+   slanted edge, a millimetre scale and a lane for a calibrated step wedge, plus the analysis
+   that scores a blind inversion against wedge-referenced truth
+   (`scripts/validate_real_recapture.py`). The pre-registered gates and what each failure
+   would mean are in [`REAL_RECAPTURE.md`](REAL_RECAPTURE.md); the shopping list and capture
+   matrix are in [`data/real_recapture/README.md`](../data/real_recapture/README.md). It needs
+   about £25 of materials and an afternoon, and until it is run this limitation stands.
 
 ### Coverage is the load-bearing assumption
 

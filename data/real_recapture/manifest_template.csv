@@ -1,1 +1,7 @@
-orig_path,clinic,phone_model,condition,capture_path
+capture_path,role,phone_model,condition,angle_deg,distance_frac,room_light,focus,notes
+data/real_recapture/pixel7/ref_01.jpg,reference,pixel7,square_on_dark,0,1.0,off,locked,exposure locked on centre
+data/real_recapture/pixel7/test_angle15.jpg,test,pixel7,angle15,15,1.0,off,locked,
+data/real_recapture/pixel7/test_roomlight.jpg,test,pixel7,room_light_on,0,1.0,on,locked,ceiling fluorescent
+data/real_recapture/iphone13/test_window.jpg,test,iphone13,window_behind,0,1.0,window,locked,reflection visible top left
+data/real_recapture/iphone13/test_far.jpg,test,iphone13,framing_60pct,0,0.6,off,locked,
+data/real_recapture/iphone13/test_soft.jpg,test,iphone13,defocus,0,1.0,off,soft,deliberately out of focus
