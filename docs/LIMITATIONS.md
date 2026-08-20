@@ -42,9 +42,29 @@ Consequences: the cross-site claim rests on two rotations, Montgomery's fold has
 across four clinics" would be a misstatement. Report per-fold n and interval
 estimates, not point accuracies alone.
 
-**Closes when:** balanced multi-class cohorts are constructed (mixing RSNA
-normals with NIAID positives under the DUA), or additional two-class sources are
-added.
+**Closes when:** additional two-class sources are added.
+
+The other half of that sentence used to read "balanced multi-class cohorts are
+constructed (mixing RSNA normals with NIAID positives under the DUA)". That
+route is now measured and it is closed. `scripts/audit_clinics.py confound` fits
+a logistic regression on nine low-level capture statistics -- brightness,
+contrast, dynamic range, entropy, sharpness, pixel dimensions, nothing that can
+see anatomy -- and on a hybrid cohort built from one source's normals and
+another's positives it calls the label at **AUC 1.000**. The obvious objection,
+that it rides on image dimensions the loader resamples away, was tested: at
+224 px it is still 1.000, carried by mean brightness instead. A hybrid cohort is
+not a clinic, and a classifier's accuracy on one says nothing about TB.
+
+Two further numbers from the same audit belong here. The real folds are not
+innocent either -- Shenzhen scores 0.853 on that test (0.775 after resampling)
+and Montgomery 0.647 (0.672) -- so a capture-level shortcut is available inside
+a genuine two-class fold, well short of the hybrid's 1.000 but well above
+chance. That is an argument for more sites, not for more modelling.
+
+`docs/SOURCES.md` surveys what those sites could be. The near-term answer is the
+NITRD DA and DB sets (India, ~150 images each, both classes, no access gate, and
+shot on two different machines at one institute), which would take the rotation
+from two folds to four.
 
 ## 4. The uncertainty target is a proxy for correctness, not radiologist agreement
 
