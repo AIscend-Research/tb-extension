@@ -78,6 +78,31 @@ No accuracy number in this repo has been produced by a real training run yet.
   `eval/adversarial_degradation.py`): params/MACs/CPU latency for every
   architecture, and a worst-of-N-query black-box degradation search that checks
   whether predicted uncertainty actually rises on the images it makes harder.
+- **The search for a third and fourth clinic** (`data/sources.py`,
+  `data/audit.py`, `scripts/audit_clinics.py`, `docs/SOURCES.md`): the rotation
+  reports two folds because only two sources are two-class, and no modelling
+  change improves that -- another independent site would. This is the surveyed
+  registry of candidates (NITRD DA/DB are the best value; TBX11K is largest but
+  pre-downscaled to 512 px, which kills the physics track; the convenient Kaggle
+  TB aggregate is a re-bundling of sources already here and must never be a
+  fold), plus the two audits a new source has to survive: a pixel-level
+  near-duplicate check with a **calibrated** threshold, and a source-confound
+  check. Both already returned results -- the calibration overturned the first
+  version of the duplicate check, and the confound test closed the
+  hybrid-cohort route `LIMITATIONS` §3 used to recommend.
+- **Physics during training, not only at deferral** (`data/physics_cache.py`,
+  `scripts/build_physics_cache.py`, `scripts/measure_physics_in_training.py`,
+  `docs/PHYSICS_IN_TRAINING.md`): the certificate is a post-hoc gate, so the
+  network never sees the measurement it is judged by. This feeds the per-pixel
+  density floor in as a fourth input channel, and separately as a per-sample loss
+  weight, to ask whether measured capture quality helps the classifier *learn*
+  rather than only helps it abstain. Six arms on one precomputed capture cache,
+  two of them controls that decide whether a positive result means anything: a
+  **scrambled** floor map (same marginal, wrong pairing -- catches an extra
+  channel acting as a regulariser) and a **constant severity** channel (catches
+  the case where the cheap scalar the simulator already knew is doing all the
+  work). The stem's new kernel is zero-initialised, so the physics arm starts as
+  the identical function to its control.
 - **Radiologist-agreement study, designed and powered** (`eval/reader_study.py`,
   `scripts/reader_study.py`, `docs/READER_STUDY.md`): the second-reader framing
   was the project's loudest unevidenced claim -- do the films the system flags

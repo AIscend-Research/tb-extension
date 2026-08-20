@@ -1,0 +1,4 @@
+clinic_a,clinic_b,n_a,n_b,n_pairs,n_a_overlapping,fraction_of_a,verdict
+montgomery,shenzhen,138,662,0,0,0.0,clean
+montgomery,montgomery (self),138,138,2,2,0.014492753623188406,suspect
+shenzhen,shenzhen (self),662,662,2,2,0.0030211480362537764,suspect

@@ -380,13 +380,11 @@ def weighted_auc(scores, positive, weights=None) -> float:
     if y.all() or not y.any():
         return float("nan")
     if np.all(w == w[0]):
-        # Equal weights: the rank identity gives the same number in O(n log n)
-        # instead of O(n^2). The power simulation calls this millions of times.
-        from scipy.stats import rankdata
-        r = rankdata(s)
-        n_pos = int(y.sum())
-        n_neg = int(len(y) - n_pos)
-        return float((r[y].sum() - n_pos * (n_pos + 1) / 2) / (n_pos * n_neg))
+        # Equal weights: this is the ordinary AUC, and `metrics.roc_auc` computes
+        # it by the rank identity in O(n log n) instead of the O(n^2) pairwise
+        # form below. The power simulation calls this millions of times.
+        from .metrics import roc_auc
+        return roc_auc(y, s)
     sp, wp = s[y], w[y]
     sn, wn = s[~y], w[~y]
     gt = (sp[:, None] > sn[None, :]).astype(float)

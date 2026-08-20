@@ -36,6 +36,20 @@ dg:
   weight: 1.0           # strength of the penalty added to the task loss
   gamma: 10.0           # DANN lambda ramp steepness (grl.dann_lambda)
 
+# Physics during training, not only at deferral (docs/PHYSICS_IN_TRAINING.md).
+# Inert unless `cache` is set: with no cache the loaders are the ordinary
+# on-the-fly degradation path and nothing below is read.
+physics:
+  cache: null           # data/processed/physics_cache, from scripts/build_physics_cache.py
+  # none     photograph only -- the control, on the same cached captures
+  # channel  normalised per-pixel floor as a fourth input channel
+  # scramble another image's floor map: the "is it just an extra channel?" control
+  # severity a constant channel of the applied severity: is per-pixel worth it?
+  mode: none
+  loss_weight: none     # none | down | up -- per-sample weight from the margin
+  weight_floor: 0.25    # smallest weight, so no photograph is fully discarded
+  stats_severity: 1.0   # severity whose train-split items fit the channel's scale
+
 train:
   epochs: 20
   batch_size: 32

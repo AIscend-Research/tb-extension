@@ -16,6 +16,7 @@ from __future__ import annotations
 
 from collections.abc import Callable
 from dataclasses import dataclass
+from pathlib import Path
 
 import numpy as np
 import pandas as pd
@@ -176,3 +177,173 @@ class uniform_severity:
 
     def __call__(self, rng: np.random.Generator | None = None) -> float:
         return float((rng or self._rng).uniform(self.low, self.high))
+
+
+class PhysicsCachedDataset(Dataset):
+    """Serves precomputed physics captures, and the arm's view of the floor.
+
+    One dataset, four arms, chosen by `physics_mode`:
+
+        none        the photograph alone. This is the *control*, and it trains on
+                    the identical cached captures, so a difference against it is
+                    attributable to the physics rather than to the capture model.
+        channel     the normalised floor map appended as a fourth input channel.
+        scramble    a fourth channel carrying some *other* image's floor map.
+                    The single most important arm here. A floor map is a smooth,
+                    low-frequency field correlated with nothing in particular; an
+                    extra channel of that kind can act as a regulariser and buy
+                    accuracy while carrying no information about the image it is
+                    attached to. If `channel` beats `none` and `scramble` beats
+                    `none` by the same amount, the physics contributed nothing
+                    and the result is about having a fourth channel at all.
+        severity    a fourth channel of one constant, the applied severity. Tests
+                    the other direction: does the *per-pixel measured* floor beat
+                    a single scalar the simulator already knew? If not, the
+                    expensive part of the physics is not what is paying.
+
+    `loss_weight` is independent of all four and can be combined with any of
+    them; it comes out in the batch and the training loop applies it.
+    """
+
+    def __init__(
+        self,
+        manifest: pd.DataFrame,
+        cache_dir: str | Path,
+        split: str | None = None,
+        severities=None,
+        physics_mode: str = "none",
+        stats=None,
+        seed: int | None = 0,
+        epoch_severity: bool = True,
+        loss_weight: str = "none",
+        weight_floor: float = 0.25,
+    ):
+        if torch is None:
+            raise ImportError("PhysicsCachedDataset needs torch. `pip install -e .`")
+        from .physics_cache import SEVERITIES
+
+        self.df = manifest if split is None else manifest[manifest["split"] == split].reset_index(drop=True)
+        self.cache_dir = Path(cache_dir)
+        # Default to the grid the cache was actually built on, not the module
+        # constant: a cache built with --severities 0,1 and a dataset defaulting
+        # to five points asks for files that were never written, and the failure
+        # lands mid-epoch rather than at construction.
+        if severities is None:
+            index = Path(cache_dir) / "index.json"
+            if index.exists():
+                import json as _json
+
+                severities = _json.loads(index.read_text()).get("severities", SEVERITIES)
+        self.severities = tuple(SEVERITIES if severities is None else severities)
+        self.physics_mode = str(physics_mode).lower()
+        self.stats = stats
+        self.seed = seed
+        self.epoch = 0
+        self.epoch_severity = bool(epoch_severity)
+        self.loss_weight = str(loss_weight).lower()
+        self.weight_floor = float(weight_floor)
+        if self.physics_mode not in {"none", "channel", "scramble", "severity"}:
+            raise ValueError(f"unknown physics_mode {physics_mode!r}")
+
+    def __len__(self) -> int:
+        return len(self.df)
+
+    def set_epoch(self, epoch: int) -> None:
+        self.epoch = int(epoch)
+
+    @property
+    def in_channels(self) -> int:
+        return 3 if self.physics_mode == "none" else 4
+
+    def _rng(self, i: int):
+        base = 0 if self.seed is None else self.seed
+        return np.random.default_rng((base * 1_000_003 + self.epoch * 10_007 + i) % (2**32))
+
+    def _severity(self, i: int) -> float:
+        """Draw from the cached grid, not the continuous range.
+
+        The physics is only available where it was precomputed, so severity is
+        discrete here where `TBDataset` samples it continuously. Every arm --
+        including the no-physics control -- inherits the same grid, so it costs
+        the contrast nothing; it does mean these runs are not comparable to
+        numbers from `configs/loco_*.yaml`, which is stated in the results.
+        """
+        if not self.epoch_severity:
+            return float(self.severities[0])
+        return float(self.severities[int(self._rng(i).integers(len(self.severities)))])
+
+    def _load(self, path: str, severity: float):
+        from .physics_cache import cache_key, load
+
+        f = self.cache_dir / f"{cache_key(path, severity)}.npz"
+        if not f.exists():
+            raise FileNotFoundError(
+                f"{f} is missing. Run scripts/build_physics_cache.py first; the "
+                "arms cannot fall back to an uncached capture without changing "
+                "the images the control sees.")
+        return load(f)
+
+    def __getitem__(self, i: int):
+        from .physics_cache import normalise_floor
+
+        row = self.df.iloc[i]
+        severity = self._severity(i)
+        item = self._load(str(row["path"]), severity)
+
+        arr = item.photo.astype(np.float32) / 255.0
+        chans = [arr, arr, arr]
+        if self.physics_mode == "channel":
+            chans.append(normalise_floor(item.floor, self.stats.log_lo, self.stats.log_hi))
+        elif self.physics_mode == "scramble":
+            # Another image's floor, at the same severity: the control keeps the
+            # channel's marginal distribution and destroys only its pairing.
+            j = int(self._rng(i + 7919).integers(len(self.df)))
+            other = self._load(str(self.df.iloc[j]["path"]), severity)
+            chans.append(normalise_floor(other.floor, self.stats.log_lo, self.stats.log_hi))
+        elif self.physics_mode == "severity":
+            chans.append(np.full_like(arr, float(severity)))
+
+        tensor = torch.from_numpy(np.stack(chans, axis=0))
+        mean = torch.tensor(IMAGENET_MEAN).view(3, 1, 1)
+        std = torch.tensor(IMAGENET_STD).view(3, 1, 1)
+        tensor[:3] = (tensor[:3] - mean) / std
+
+        out = {
+            "image": tensor,
+            "label": torch.tensor(int(row["label"]), dtype=torch.long),
+            "uncertainty_target": torch.tensor(
+                uncertainty_target_from_severity(severity), dtype=torch.float32),
+            "severity": torch.tensor(float(severity), dtype=torch.float32),
+            "clinic_idx": torch.tensor(clinic_index(row["clinic"]), dtype=torch.long),
+            "margin_db": torch.tensor(float(item.meta.get("margin_db", float("nan"))),
+                                      dtype=torch.float32),
+            "abstained": torch.tensor(bool(item.abstained)),
+            "loss_weight": torch.tensor(self._weight(item), dtype=torch.float32),
+        }
+        return out
+
+    def _weight(self, item) -> float:
+        """Per-sample loss weight from the certificate, in the requested direction.
+
+        `down` is the argued-for one: when the certificate says the photograph
+        cannot carry the finding, the archive label is still TB or not-TB, but
+        nothing in *this image* supports it -- so the gradient teaches the
+        network to predict the label from whatever spurious cue is left, which is
+        the definition of a shortcut. Down-weighting those samples should reduce
+        it. `up` is the hard-example-mining intuition and is included because it
+        is equally plausible a priori and only measurement can separate them.
+
+        Weights are floored at `weight_floor` rather than driven to zero: on this
+        corpus a large fraction of photographs are INSUFFICIENT for the worst
+        finding, and a hard zero would throw away most of the training set, which
+        would confound "physics helps" with "less data hurts".
+        """
+        if self.loss_weight == "none":
+            return 1.0
+        m = float(item.meta.get("margin_db", float("nan")))
+        if item.abstained or not np.isfinite(m):
+            q = 0.0                                  # unmeasurable: treat as worst
+        else:
+            q = float(np.clip((m + 12.0) / 24.0, 0.0, 1.0))   # -12 dB .. +12 dB
+        w = q if self.loss_weight == "down" else (1.0 - q)
+        return float(self.weight_floor + (1.0 - self.weight_floor) * w)

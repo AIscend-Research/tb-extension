@@ -53,3 +53,27 @@ def load_checkpoint(model, path: str | Path, map_location: str = "cpu"):
             f"shared across two configs with different archs for the same holdout clinic.\n{e}"
         ) from e
     return ckpt
+
+
+def pick_device(requested: str | None = None) -> str:
+    """Resolve the training/eval device, preferring an accelerator if there is one.
+
+    The previous rule was `cuda if available else cpu`, which on Apple silicon --
+    where a lot of this project's development happens -- silently means cpu even
+    though Metal is right there. That is not a correctness problem but it is a
+    throughput one: the arm comparison in
+    `scripts/measure_physics_in_training.py` is eighteen training runs, and the
+    difference decides whether it is a coffee break or an afternoon.
+
+    An explicit `train.device` always wins, so a run pinned to cpu for
+    reproducibility stays pinned.
+    """
+    import torch
+
+    if requested:
+        return str(requested)
+    if torch.cuda.is_available():
+        return "cuda"
+    if getattr(torch.backends, "mps", None) is not None and torch.backends.mps.is_available():
+        return "mps"
+    return "cpu"

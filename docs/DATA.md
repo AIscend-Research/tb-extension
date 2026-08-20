@@ -70,6 +70,21 @@ So:
   report it as a clean generalization result.
 - `scripts/build_manifest.py` prints a class-balance table and flags single-class
   clinics. `tbtrust.data.splits.check_split` warns at split time. Heed both.
+- **Do not mix sources into a synthetic clinic.** It was once suggested here and
+  in `docs/LIMITATIONS.md` §3; it has since been measured, and a hybrid cohort's
+  label is called at AUC 1.000 by nine capture statistics that cannot see
+  anatomy, before and after resampling. See `docs/SOURCES.md` §2.
+- **Run the audits before a new source is allowed into a reported rotation**:
+  `scripts/audit_clinics.py calibrate`, then `overlap` (pixel-level, catches a
+  source that is secretly a re-host of one already present -- the split code
+  keys on the clinic column and cannot), then `confound`.
+
+## Looking for a third and fourth clinic
+
+`docs/SOURCES.md` is the survey: what exists, what each costs to obtain, and
+which entries are still unverified. The short version is that the NITRD DA and
+DB sets (India) are the best available addition and the Kaggle "TB Chest X-ray
+Database" is not a clinic at all.
 
 ## After downloading
 

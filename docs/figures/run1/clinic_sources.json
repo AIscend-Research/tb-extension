@@ -1,0 +1,116 @@
+[
+  {
+    "key": "nitrd_da",
+    "name": "NITRD set DA",
+    "country": "India",
+    "n_images": 156,
+    "both_classes": true,
+    "resolution": "varies; full-resolution radiographs",
+    "licence": "research use; redistributed on Kaggle",
+    "access": "Kaggle download, no gate",
+    "verdict": "usable",
+    "overlap_risk": "low; predates and is disjoint from the NLM sets, but it is bundled into TBX11K's comparison tables, so check before using both",
+    "url": "https://www.kaggle.com/datasets/vbookshelf/da-and-db-tb-chest-x-ray-datasets",
+    "unverified_fields": [
+      "both_classes",
+      "institution",
+      "licence",
+      "n_images"
+    ]
+  },
+  {
+    "key": "nitrd_db",
+    "name": "NITRD set DB",
+    "country": "India",
+    "n_images": 150,
+    "both_classes": true,
+    "resolution": "varies; full-resolution radiographs",
+    "licence": "research use; redistributed on Kaggle",
+    "access": "Kaggle download, no gate",
+    "verdict": "usable",
+    "overlap_risk": "low, but DA and DB share an institute -- treat them as two machines at one site, not two independent sites, unless the clinic-stats table says otherwise",
+    "url": "https://www.kaggle.com/datasets/vbookshelf/da-and-db-tb-chest-x-ray-datasets",
+    "unverified_fields": [
+      "both_classes",
+      "institution",
+      "licence",
+      "n_images"
+    ]
+  },
+  {
+    "key": "tbx11k",
+    "name": "TBX11K",
+    "country": "China",
+    "n_images": 11200,
+    "both_classes": true,
+    "resolution": "distributed at 512x512, downscaled from ~3000x3000",
+    "licence": "CC BY 4.0",
+    "access": "Google Drive / Baidu link from the project page",
+    "verdict": "usable_with_caveats",
+    "overlap_risk": "stated to be a new collection rather than a compilation, but it is Chinese and the Shenzhen set is Chinese; secondary sources conflate the two often enough that the pixel-level audit is mandatory before it goes in the manifest",
+    "url": "https://github.com/yun-liu/Tuberculosis",
+    "unverified_fields": [
+      "institution"
+    ]
+  },
+  {
+    "key": "vindr_cxr",
+    "name": "VinDr-CXR",
+    "country": "Vietnam",
+    "n_images": 18000,
+    "both_classes": true,
+    "resolution": "original DICOM, full resolution",
+    "licence": "PhysioNet Credentialed Health Data License 1.5.0",
+    "access": "credentialed PhysioNet account + CITI training + signed DUA",
+    "verdict": "usable_with_caveats",
+    "overlap_risk": "none known; a separate country and hospital system",
+    "url": "https://physionet.org/content/vindr-cxr/1.0.0/",
+    "unverified_fields": []
+  },
+  {
+    "key": "padchest",
+    "name": "PadChest",
+    "country": "Spain",
+    "n_images": 160000,
+    "both_classes": true,
+    "resolution": "original, full resolution",
+    "licence": "research use, via BIMCV",
+    "access": "BIMCV registration",
+    "verdict": "usable_with_caveats",
+    "overlap_risk": "none known; European, a different population and disease prevalence entirely",
+    "url": "https://bimcv.cipf.es/bimcv-projects/padchest/",
+    "unverified_fields": [
+      "class_note"
+    ]
+  },
+  {
+    "key": "kaggle_tb_aggregate",
+    "name": "Tuberculosis (TB) Chest X-ray Database (Qatar/Dhaka)",
+    "country": "mixed",
+    "n_images": 4200,
+    "both_classes": true,
+    "resolution": "512x512, downscaled",
+    "licence": "CC BY 4.0 on the bundle",
+    "access": "Kaggle download, no gate",
+    "verdict": "not_a_fold",
+    "overlap_risk": "CERTAIN. It contains the NLM images already in this manifest.",
+    "url": "https://www.kaggle.com/datasets/tawsifurrahman/tuberculosis-tb-chest-xray-dataset",
+    "unverified_fields": [
+      "class_note"
+    ]
+  },
+  {
+    "key": "niaid_tbportals",
+    "name": "NIAID TB Portals",
+    "country": "multi (Belarus, Moldova, Georgia, ...)",
+    "n_images": 3000,
+    "both_classes": false,
+    "resolution": "varies",
+    "licence": "DUA",
+    "access": "click-through data-use agreement",
+    "verdict": "not_a_fold",
+    "overlap_risk": "re-bundled inside the Kaggle aggregate above",
+    "url": "https://data.tbportals.niaid.nih.gov/",
+    "unverified_fields": []
+  }
+]

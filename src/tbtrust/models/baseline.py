@@ -23,23 +23,93 @@ from .grl import grad_reverse
 
 def _make_backbone(name: str, pretrained: bool) -> tuple[nn.Module, int]:
     """Return (feature_extractor, feature_dim). Tries timm, falls back to torchvision."""
+    timm_error: Exception | None = None
     try:
         import timm
 
         model = timm.create_model(name, pretrained=pretrained, num_classes=0, global_pool="avg")
         return model, model.num_features
-    except Exception:
+    except Exception as exc:
+        timm_error = exc
         from torchvision import models as tvm
 
-        if name.startswith("densenet"):
-            net = tvm.densenet121(weights=tvm.DenseNet121_Weights.DEFAULT if pretrained else None)
+        # Explicit table, and an error for anything not in it. The previous
+        # fallback was `densenet* -> densenet121, everything else -> resnet50`,
+        # which meant a config asking for resnet18 silently trained a resnet50
+        # whenever timm was missing or could not reach its weight host -- the run
+        # succeeds, the log says resnet18, and the parameter count in
+        # benchmark_efficiency.py is for a different network than the one that
+        # produced the accuracy.
+        known = {
+            "densenet121": (tvm.densenet121, tvm.DenseNet121_Weights),
+            "resnet18": (tvm.resnet18, tvm.ResNet18_Weights),
+            "resnet34": (tvm.resnet34, tvm.ResNet34_Weights),
+            "resnet50": (tvm.resnet50, tvm.ResNet50_Weights),
+        }
+        if name not in known:
+            raise ValueError(
+                f"backbone {name!r} is not available: timm could not provide it "
+                f"and the torchvision fallback knows only {sorted(known)}. "
+                "Install timm, or pick one of those.") from timm_error
+        ctor, weights = known[name]
+        net = ctor(weights=weights.DEFAULT if pretrained else None)
+        if hasattr(net, "classifier"):
             dim = net.classifier.in_features
             net.classifier = nn.Identity()
-            return net, dim
-        net = tvm.resnet50(weights=tvm.ResNet50_Weights.DEFAULT if pretrained else None)
-        dim = net.fc.in_features
-        net.fc = nn.Identity()
+        else:
+            dim = net.fc.in_features
+            net.fc = nn.Identity()
         return net, dim
+
+
+def expand_first_conv(backbone: nn.Module, in_channels: int) -> nn.Module:
+    """Widen the stem convolution to `in_channels`, zero-initialising the new ones.
+
+    Zero-init is the point, not a default. With the extra kernel at zero the
+    network's output does not depend on the new channel at all at initialisation
+    -- feed it noise, zeros or a constant and the logit is bit for bit the same,
+    which `tests/test_physics_training.py` pins. So the physics arm starts as the
+    identical function to the same network with the channel removed, and any
+    divergence afterwards is something the channel bought rather than a different
+    starting point. Copying the mean of the pretrained RGB weights
+    into the new channel instead -- the usual recipe -- would perturb every
+    prediction from step zero and confound "the physics helped" with "the stem
+    was reinitialised".
+
+    The pretrained weights for the first three channels are left untouched, so
+    ImageNet initialisation survives.
+    """
+    conv = None
+    for m in backbone.modules():
+        if isinstance(m, nn.Conv2d):
+            conv = m
+            break
+    if conv is None:
+        raise ValueError("no Conv2d in the backbone to widen")
+    if conv.in_channels == in_channels:
+        return backbone
+    if conv.in_channels != 3:
+        raise ValueError(f"expected a 3-channel stem, found {conv.in_channels}")
+
+    wider = nn.Conv2d(in_channels, conv.out_channels, conv.kernel_size,
+                      stride=conv.stride, padding=conv.padding,
+                      dilation=conv.dilation, groups=conv.groups,
+                      bias=conv.bias is not None)
+    with torch.no_grad():
+        wider.weight.zero_()
+        wider.weight[:, :3] = conv.weight
+        if conv.bias is not None:
+            wider.bias.copy_(conv.bias)
+
+    parent, attr = None, None
+    for _name, module in backbone.named_modules():
+        for cname, child in module.named_children():
+            if child is conv:
+                parent, attr = module, cname
+    if parent is None:
+        raise ValueError("could not locate the stem convolution's parent module")
+    setattr(parent, attr, wider)
+    return backbone
 
 
 class TBClassifier(nn.Module):
@@ -69,9 +139,13 @@ class TBClassifier(nn.Module):
         num_clinics: int = NUM_CLINIC_SLOTS,
         with_domain_head: bool = False,
         with_clinic_film: bool = False,
+        in_channels: int = 3,
     ):
         super().__init__()
         self.backbone, feat = _make_backbone(backbone, pretrained)
+        self.in_channels = int(in_channels)
+        if self.in_channels != 3:
+            self.backbone = expand_first_conv(self.backbone, self.in_channels)
         self.dropout = nn.Dropout(dropout)
         self.classifier = nn.Linear(feat, 1)
         self.with_uncertainty_head = with_uncertainty_head
@@ -120,4 +194,5 @@ def build_model(cfg: dict) -> TBClassifier:
         num_clinics=m.get("num_clinics", NUM_CLINIC_SLOTS),
         with_domain_head=(dg == "dann"),
         with_clinic_film=bool(m.get("clinic_film", False)),
+        in_channels=int(m.get("in_channels", 3)),
     )
