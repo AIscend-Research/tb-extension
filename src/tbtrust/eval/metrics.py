@@ -42,6 +42,32 @@ def accuracy(labels, probs, threshold: float = 0.5) -> float:
     return float(np.mean(p == y)) if len(y) else float("nan")
 
 
+def roc_auc(labels, probs) -> float:
+    """Threshold-free ranking quality, by the rank identity (ties count half).
+
+    Lives here rather than in the caller that first needed it, because two now
+    do: `eval/reader_study.py` scores model signals against reader ratings with
+    the sampling-weighted generalisation of this, and it delegates to this
+    function on the equal-weight path.
+
+    NaN when one class is absent -- an AUC on a single-class split is undefined,
+    and returning 0.5 there would quietly report "chance" for what is actually
+    "unmeasurable", which is the distinction `data/splits.py` exists to protect.
+    """
+    from scipy.stats import rankdata
+
+    y = np.asarray(labels).astype(bool)
+    p = np.asarray(probs, dtype=float)
+    ok = np.isfinite(p)
+    y, p = y[ok], p[ok]
+    n_pos = int(y.sum())
+    n_neg = int(len(y) - n_pos)
+    if n_pos == 0 or n_neg == 0:
+        return float("nan")
+    r = rankdata(p)
+    return float((r[y].sum() - n_pos * (n_pos + 1) / 2) / (n_pos * n_neg))
+
+
 def brier_score(labels, probs) -> float:
     """Mean squared error between predicted TB probability and the 0/1 label.
 

@@ -146,13 +146,12 @@ def _build_model(cfg: dict):
 
 
 def evaluate(cfg: dict, checkpoint: str, ensemble_checkpoints: list[str] | None = None) -> dict:
-    import torch
     from torch.utils.data import DataLoader
 
     from ..data import manifest as M
     from ..data.dataset import TBDataset
     from ..data.splits import split_from_config
-    from ..utils.io import load_checkpoint, save_json
+    from ..utils.io import load_checkpoint, pick_device, save_json
     from ..utils.seed import seed_everything
     from . import calibration as C
     from . import conformal as CP
@@ -161,7 +160,7 @@ def evaluate(cfg: dict, checkpoint: str, ensemble_checkpoints: list[str] | None 
     from . import forecast_verification as FV
     from .metrics import summary
 
-    device = cfg["train"].get("device") or ("cuda" if torch.cuda.is_available() else "cpu")
+    device = pick_device(cfg["train"].get("device"))
     eval_cfg = cfg.get("eval", {})
 
     # MC-dropout draws from torch's global RNG. Without seeding here, two

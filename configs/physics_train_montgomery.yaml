@@ -1,0 +1,21 @@
+# Physics during training: the control arm, on the precomputed capture cache.
+#
+# `scripts/measure_physics_in_training.py` runs this file with physics.mode and
+# physics.loss_weight overridden per arm, so every arm differs from this one in
+# exactly those two keys and nothing else -- same cache, same captures, same
+# severity grid, same seeds. Backbone is resnet18 rather than the densenet121
+# default: the contrast is between arms, and a smaller backbone buys enough
+# seeds per arm to say whether a difference is real.
+data:
+  holdout_clinic: montgomery
+model:
+  arch: baseline
+  backbone: resnet18
+physics:
+  cache: data/processed/physics_cache
+  mode: none
+  loss_weight: none
+train:
+  epochs: 8
+  batch_size: 32
+  lr: 3.0e-4

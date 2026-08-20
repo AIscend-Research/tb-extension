@@ -26,8 +26,67 @@ import argparse
 from pathlib import Path
 
 from ..config import load_experiment
-from ..utils.io import save_checkpoint, save_json
+from ..utils.io import pick_device, save_checkpoint, save_json
 from ..utils.seed import seed_everything
+
+
+def _build_physics_loaders(cfg: dict, df, phys: dict, seed: int):
+    """Loaders over the precomputed physics cache, for every arm including control.
+
+    All arms share the cache and the severity grid; `physics.mode` decides only
+    what the fourth channel carries, and `physics.loss_weight` only what the loss
+    scales by. The normalisation constants for the floor channel are fitted on
+    the **training split alone** and reused for val -- refitting per split would
+    leak the held-out captures' scale into the channel, and refitting per image
+    would erase the between-image differences the channel exists to carry.
+    """
+    import json
+
+    from torch.utils.data import DataLoader
+
+    from ..data.dataset import PhysicsCachedDataset
+    from ..data.physics_cache import CacheStats, cache_key, fit_stats, load
+
+    cache = Path(phys["cache"])
+    mode = str(phys.get("mode", "none")).lower()
+    stats = None
+    if mode in {"channel", "scramble"}:
+        stats_path = cache / "stats.json"
+        if stats_path.exists():
+            stats = CacheStats.from_dict(json.loads(stats_path.read_text()))
+        else:
+            train_rows = df[df["split"] == "train"]
+            items, base = [], float(phys.get("stats_severity", 1.0))
+            for p in train_rows["path"]:
+                f = cache / f"{cache_key(str(p), base)}.npz"
+                if f.exists():
+                    items.append(load(f))
+            if not items:
+                raise FileNotFoundError(
+                    f"no cached items under {cache} for the train split; run "
+                    "scripts/build_physics_cache.py")
+            stats = fit_stats(items)
+            stats_path.write_text(json.dumps(stats.to_dict(), indent=2))
+
+    common = dict(cache_dir=cache, physics_mode=mode, stats=stats, seed=seed,
+                  loss_weight=str(phys.get("loss_weight", "none")),
+                  weight_floor=float(phys.get("weight_floor", 0.25)))
+    train_ds = PhysicsCachedDataset(df, split="train", epoch_severity=True, **common)
+    val_ds = PhysicsCachedDataset(
+        df, split="val", epoch_severity=False,
+        severities=(float(cfg["degradation"].get("val_fixed", 0.0)),), **common)
+
+    bs = cfg["train"]["batch_size"]
+    nw = cfg["train"].get("num_workers", 2)
+    if len(train_ds) < bs:
+        raise ValueError(
+            f"train split has {len(train_ds)} images but batch_size is {bs}; with "
+            "drop_last=True that produces no batches at all. Lower train.batch_size.")
+    return (
+        DataLoader(train_ds, batch_size=bs, shuffle=True, num_workers=nw, drop_last=True),
+        DataLoader(val_ds, batch_size=bs, shuffle=False, num_workers=nw),
+        df,
+    )
 
 
 def _build_loaders(cfg: dict):
@@ -43,6 +102,10 @@ def _build_loaders(cfg: dict):
 
     sev = cfg["degradation"]
     seed = cfg.get("seed", 0)
+
+    phys = cfg.get("physics", {})
+    if phys.get("cache"):
+        return _build_physics_loaders(cfg, df, phys, seed)
     # Seed both datasets. seed_everything() covers torch/python/np global RNGs but
     # not the degradation pipeline, which builds its own Generator per call: unseeded,
     # that draws from OS entropy, so a run was irreproducible no matter what seed
@@ -166,9 +229,17 @@ def train(cfg: dict) -> dict:
     from ..models.tbnet import TBNet
 
     seed_everything(cfg.get("seed", 0))
-    device = cfg["train"].get("device") or ("cuda" if torch.cuda.is_available() else "cpu")
+    device = pick_device(cfg["train"].get("device"))
 
     train_loader, val_loader, _ = _build_loaders(cfg)
+
+    # The dataset is the single source of truth for the input width: it is what
+    # decides whether a fourth channel is stacked, so letting the config declare
+    # `in_channels` separately would allow a silent mismatch that surfaces as a
+    # shape error deep in the stem, or worse, not at all.
+    ds_channels = getattr(train_loader.dataset, "in_channels", 3)
+    if ds_channels != 3:
+        cfg.setdefault("model", {})["in_channels"] = ds_channels
 
     arch = cfg["model"].get("arch", "baseline")
     dg_method = str(cfg.get("dg", {}).get("method", "none")).lower()
@@ -181,6 +252,12 @@ def train(cfg: dict) -> dict:
             f"(got {arch!r}): TBNet and the evidential head expose no pooled "
             "features or domain head. Add one to that arch, or set dg.method=none."
         )
+    if ds_channels != 3 and arch != "baseline":
+        raise ValueError(
+            f"physics.mode adds an input channel, which only model.arch=baseline "
+            f"supports (got {arch!r}): TBNet and the evidential model build their "
+            "own stems. Use arch=baseline, or set physics.mode=none and keep the "
+            "loss-weight arm, which is architecture-independent.")
     if arch == "tbnet":
         m = cfg["model"]
         model = TBNet(dropout=m.get("dropout", 0.3),
@@ -193,6 +270,11 @@ def train(cfg: dict) -> dict:
     opt = torch.optim.AdamW(model.parameters(), lr=cfg["train"]["lr"],
                             weight_decay=cfg["train"].get("weight_decay", 1e-4))
     bce = nn.BCEWithLogitsLoss()
+    # Per-sample reduction is needed only when the physics is weighting the loss;
+    # the mean-reduced `bce` above stays the path for every other config, so no
+    # existing run changes numerically.
+    bce_none = nn.BCEWithLogitsLoss(reduction="none")
+    phys_weighting = str(cfg.get("physics", {}).get("loss_weight", "none")).lower() != "none"
     mse = nn.MSELoss()
     u_weight = cfg["train"].get("uncertainty_loss_weight", 0.5)
     annealing_epochs = cfg["train"].get("evidential_annealing_epochs", 10)
@@ -226,6 +308,18 @@ def train(cfg: dict) -> dict:
                 # "uncertainty" here is the vacuity read off the evidence, not a
                 # separately-trained head, so there's no MSE term to add.
                 loss = evidential_loss(out["evidence"], y, epoch=epoch, annealing_epochs=annealing_epochs)
+            elif phys_weighting:
+                # Renormalised by the batch's mean weight, so the effective
+                # learning rate does not drift with how many low-margin
+                # photographs a batch happens to contain -- otherwise "physics
+                # weighting" and "a smaller LR on some batches" are the same
+                # experiment and the result cannot be attributed.
+                w = batch["loss_weight"].to(device)
+                per = bce_none(out["logit"], y)
+                loss = (w * per).sum() / w.sum().clamp_min(1e-8)
+                if "uncertainty" in out:
+                    loss = loss + u_weight * mse(out["uncertainty"],
+                                                 batch["uncertainty_target"].to(device))
             else:
                 loss = bce(out["logit"], y)
                 if "uncertainty" in out:
