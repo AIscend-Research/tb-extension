@@ -163,7 +163,9 @@ Three things a newcomer should know before changing anything:
 `eval/run.py` (metrics.json + the reliability/deferral figure). Write the
 limitations honestly: everything is synthetic degradation with no real phone
 captures yet, the uncertainty target is a proxy for correctness rather than
-measured radiologist agreement, and deferral assumes trained staff are on hand.
+measured radiologist agreement (the study that would measure it is designed and
+powered in `docs/READER_STUDY.md`, and needs only readers), and deferral assumes
+trained staff are on hand.
 
 ## A way to split it across ~4 people
 

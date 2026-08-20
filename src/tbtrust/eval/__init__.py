@@ -8,6 +8,7 @@ from . import (
     forecast_verification,
     metrics,
     physics_deferral,
+    reader_study,
     sequential_deferral,
 )
 
@@ -21,5 +22,6 @@ __all__ = [
     "forecast_verification",
     "metrics",
     "physics_deferral",
+    "reader_study",
     "sequential_deferral",
 ]

@@ -151,7 +151,11 @@ they require studies nobody has run:
 
 - Prospective evaluation at the deployment site.
 - Agreement between model uncertainty and radiologist-flagged ambiguity
-  (`docs/LIMITATIONS.md` §4).
+  (`docs/LIMITATIONS.md` §4). The study that would produce it is now designed,
+  powered and runnable -- `docs/READER_STUDY.md`, `scripts/reader_study.py` --
+  and it flags one blocker to clear first: at the current operating point the
+  deferral and triage decisions are constant on the test corpus, so there is no
+  variation for a reader to agree with.
 - Evidence that the deferral workflow improves patient outcomes rather than
   merely improving retained-set accuracy. A model can post excellent selective
   accuracy while making a clinic slower and no more accurate overall.

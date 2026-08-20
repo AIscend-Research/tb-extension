@@ -60,6 +60,25 @@ clinician has labelled anything in this project.
 "would you seek a second opinion," and that is correlated against predicted
 uncertainty.
 
+**Status: everything except the radiologist is now built and run.**
+`docs/READER_STUDY.md` pre-registers the protocol, the instrument and the
+falsification criterion; `eval/reader_study.py` + `scripts/reader_study.py` draw
+the balanced sample (12 cells x 10 films over the margin x uncertainty grid,
+including a stratum for the certificate's abstentions), export the blinded
+photographs, and run the weighted analysis. Three things it already measured
+without a reader:
+
+* the two signals are near-orthogonal on the real corpus (Spearman -0.10), so
+  the study can separate them -- if they had agreed, no reader study could;
+* **the policy-agreement contrast cannot run at the current operating point**:
+  on all 600 test rows `triage_action` is `retake` and `model_confident` is
+  True, both constant, and a kappa against a constant is undefined. This is a
+  prerequisite to fix, not a footnote;
+* the reader-noise ceiling is 0.85 (one reader) to 0.91 (three), not 1.0, so
+  n = 120 films x 3 readers gives 85% power against a moderate effect.
+
+The limitation itself is unchanged until a clinician actually rates the sample.
+
 ## 5. Deferral assumes a human is available to defer *to*
 
 The entire safety argument is that low-confidence cases go to a person. In the
