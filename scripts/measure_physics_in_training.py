@@ -138,13 +138,38 @@ def run_arm(name: str, arm: dict, seed: int, args) -> dict:
         cfg["train"]["device"] = args.device
 
     t0 = time.time()
-    res = train(cfg)
+    done = _finished_run(cfg)
+    if args.resume and done is not None:
+        # Training is ~7x the cost of scoring, and an eighteen-run sweep that
+        # loses everything to one interruption is a design fault rather than bad
+        # luck. `train_summary.json` is the completion marker because `train()`
+        # writes it only after the last epoch -- a `best.ckpt` on its own can be
+        # the best of three epochs of a run that was killed at four, and reusing
+        # that would silently put a shorter-trained arm into the comparison.
+        summary, checkpoint = done
+        cfg.setdefault("model", {})["in_channels"] = 3 if arm["mode"] == "none" else 4
+        res = {"best_val_accuracy": summary["best_val_accuracy"],
+               "checkpoint": str(checkpoint)}
+        resumed = True
+    else:
+        res = train(cfg)
+        resumed = False
+
     metrics = _test_metrics(cfg, Path(res["checkpoint"]),
                             [float(s) for s in args.severities.split(",")])
     return {"arm": name, "seed": seed, "best_val_accuracy": res["best_val_accuracy"],
-            "seconds": time.time() - t0, **{f"test_{k}": v
-                                            for k, v in metrics["pooled"].items()},
+            "resumed": resumed, "seconds": time.time() - t0,
+            **{f"test_{k}": v for k, v in metrics["pooled"].items()},
             "by_severity": metrics["by_severity"]}
+
+
+def _finished_run(cfg: dict):
+    """(summary, checkpoint) for a run that reached its last epoch, else None."""
+    out = Path(cfg["train"]["output_dir"]) / cfg["data"]["holdout_clinic"]
+    summary, ckpt = out / "train_summary.json", out / "best.ckpt"
+    if not (summary.exists() and ckpt.exists()):
+        return None
+    return json.loads(summary.read_text()), ckpt
 
 
 def paired_summary(df: pd.DataFrame, metric: str, n_boot: int = 5000,
@@ -192,6 +217,8 @@ def main() -> int:
     ap.add_argument("--outdir", default="outputs/physics_training")
     ap.add_argument("--out", default="outputs/physics_in_training.csv")
     ap.add_argument("--device", default=None)
+    ap.add_argument("--resume", action="store_true",
+                    help="reuse runs that already reached their last epoch")
     args = ap.parse_args()
 
     unknown = [a for a in args.arms if a not in ARMS]
@@ -200,18 +227,23 @@ def main() -> int:
     if "control" not in args.arms:
         raise SystemExit("the control arm is the comparison; it cannot be dropped")
 
+    out = Path(args.out)
+    out.parent.mkdir(parents=True, exist_ok=True)
     rows = []
     for seed in range(args.seeds):
         for name in args.arms:
             print(f"\n=== {name} seed {seed} ===", flush=True)
             rows.append(run_arm(name, ARMS[name], seed, args))
+            # Flushed every run. The first version wrote the CSV only at the end
+            # and an interruption at run 16 of 18 left nothing on disk at all.
+            pd.DataFrame([{k: v for k, v in r.items() if k != "by_severity"}
+                          for r in rows]).to_csv(out, index=False)
             r = rows[-1]
+            tag = " [resumed]" if r["resumed"] else ""
             print(f"  val={r['best_val_accuracy']:.4f} test_acc={r['test_accuracy']:.4f} "
-                  f"test_auc={r['test_auc']:.4f} ({r['seconds']:.0f}s)", flush=True)
+                  f"test_auc={r['test_auc']:.4f} ({r['seconds']:.0f}s){tag}", flush=True)
 
     df = pd.DataFrame([{k: v for k, v in r.items() if k != "by_severity"} for r in rows])
-    out = Path(args.out)
-    out.parent.mkdir(parents=True, exist_ok=True)
     df.to_csv(out, index=False)
 
     summary = []
