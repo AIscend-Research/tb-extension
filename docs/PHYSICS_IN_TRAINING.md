@@ -117,4 +117,12 @@ difference would drown it.
 
 ## 5. Results
 
-See `docs/RESULTS_PHYSICS_TRAINING.md`.
+**Negative.** No arm improved anything, and `channel` -- the arm carrying the
+real per-pixel floor -- was significantly *worse* than `scramble`, the identical
+channel carrying another image's floor map (AUC -0.041, interval excluding
+zero). A fourth channel is free: `scramble` and `severity` both match `control`
+on AUC. Pairing it correctly is what costs. The certificate's place is the
+post-hoc gate it already occupies.
+
+Full numbers, the severity breakdown, and what the result does not license:
+`docs/RESULTS_PHYSICS_TRAINING.md`.

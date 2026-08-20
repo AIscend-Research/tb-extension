@@ -102,7 +102,12 @@ No accuracy number in this repo has been produced by a real training run yet.
   channel acting as a regulariser) and a **constant severity** channel (catches
   the case where the cheap scalar the simulator already knew is doing all the
   work). The stem's new kernel is zero-initialised, so the physics arm starts as
-  the identical function to its control.
+  the identical function to its control. **Measured, and the answer is no**
+  (`docs/RESULTS_PHYSICS_TRAINING.md`): no arm improves anything, and the real
+  floor map is significantly worse than a scrambled one, so the certificate's
+  place is the post-hoc gate it already occupies. The controls are what make
+  that readable -- an extra channel costs nothing on its own, so the loss is
+  attributable to the pairing rather than the architecture.
 - **Radiologist-agreement study, designed and powered** (`eval/reader_study.py`,
   `scripts/reader_study.py`, `docs/READER_STUDY.md`): the second-reader framing
   was the project's loudest unevidenced claim -- do the films the system flags
