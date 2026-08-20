@@ -78,6 +78,18 @@ No accuracy number in this repo has been produced by a real training run yet.
   `eval/adversarial_degradation.py`): params/MACs/CPU latency for every
   architecture, and a worst-of-N-query black-box degradation search that checks
   whether predicted uncertainty actually rises on the images it makes harder.
+- **The search for a third and fourth clinic** (`data/sources.py`,
+  `data/audit.py`, `scripts/audit_clinics.py`, `docs/SOURCES.md`): the rotation
+  reports two folds because only two sources are two-class, and no modelling
+  change improves that -- another independent site would. This is the surveyed
+  registry of candidates (NITRD DA/DB are the best value; TBX11K is largest but
+  pre-downscaled to 512 px, which kills the physics track; the convenient Kaggle
+  TB aggregate is a re-bundling of sources already here and must never be a
+  fold), plus the two audits a new source has to survive: a pixel-level
+  near-duplicate check with a **calibrated** threshold, and a source-confound
+  check. Both already returned results -- the calibration overturned the first
+  version of the duplicate check, and the confound test closed the
+  hybrid-cohort route `LIMITATIONS` §3 used to recommend.
 - **Physics during training, not only at deferral** (`data/physics_cache.py`,
   `scripts/build_physics_cache.py`, `scripts/measure_physics_in_training.py`,
   `docs/PHYSICS_IN_TRAINING.md`): the certificate is a post-hoc gate, so the

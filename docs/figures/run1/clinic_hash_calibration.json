@@ -1,0 +1,64 @@
+{
+  "known_disjoint_pair": [
+    "montgomery",
+    "shenzhen"
+  ],
+  "results": [
+    {
+      "size": 8,
+      "n_bits": 64,
+      "n_positive_pairs": 40,
+      "n_negative_pairs": 3600,
+      "positive_max": 2,
+      "positive_median": 0.0,
+      "negative_min": 4,
+      "negative_median": 15.0,
+      "gap_bits": 2,
+      "recommended_threshold": 3,
+      "usable": true,
+      "note": "separable"
+    },
+    {
+      "size": 12,
+      "n_bits": 144,
+      "n_positive_pairs": 40,
+      "n_negative_pairs": 3600,
+      "positive_max": 2,
+      "positive_median": 0.0,
+      "negative_min": 9,
+      "negative_median": 38.0,
+      "gap_bits": 7,
+      "recommended_threshold": 5,
+      "usable": true,
+      "note": "separable"
+    },
+    {
+      "size": 16,
+      "n_bits": 256,
+      "n_positive_pairs": 40,
+      "n_negative_pairs": 3600,
+      "positive_max": 2,
+      "positive_median": 0.0,
+      "negative_min": 26,
+      "negative_median": 75.0,
+      "gap_bits": 24,
+      "recommended_threshold": 14,
+      "usable": true,
+      "note": "separable"
+    },
+    {
+      "size": 24,
+      "n_bits": 576,
+      "n_positive_pairs": 40,
+      "n_negative_pairs": 3600,
+      "positive_max": 6,
+      "positive_median": 1.0,
+      "negative_min": 99,
+      "negative_median": 193.0,
+      "gap_bits": 93,
+      "recommended_threshold": 52,
+      "usable": true,
+      "note": "separable"
+    }
+  ]
+}
