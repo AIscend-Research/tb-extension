@@ -1,0 +1,131 @@
+{
+  "rows_source": "outputs/physics_deferral_rows.csv",
+  "images": null,
+  "test_only": true,
+  "uncertainty_col": "mc_std",
+  "n_cases_drawn": 120,
+  "n_shown_including_repeats": 132,
+  "n_repeats": 12,
+  "strata": [
+    3,
+    3
+  ],
+  "seed": 0,
+  "signal_overlap": {
+    "n_rows": 600,
+    "n_films": 120,
+    "physics_abstain_rate": 0.235,
+    "worst_finding_insufficient_rate": 1.0,
+    "per_finding_verdicts": {
+      "miliary_nodule": {
+        "insufficient": 1.0,
+        "marginal": 0.0,
+        "detectable": 0.0,
+        "abstain": 0.235
+      },
+      "infiltrate": {
+        "insufficient": 0.39869281045751637,
+        "marginal": 0.19172113289760348,
+        "detectable": 0.4095860566448802,
+        "abstain": 0.235
+      },
+      "cavity_wall": {
+        "insufficient": 0.7254901960784313,
+        "marginal": 0.14596949891067537,
+        "detectable": 0.12854030501089325,
+        "abstain": 0.235
+      },
+      "consolidation": {
+        "insufficient": 0.008714596949891068,
+        "marginal": 0.013071895424836602,
+        "detectable": 0.9782135076252724,
+        "abstain": 0.235
+      }
+    },
+    "degenerate_columns": {
+      "triage_action": 1,
+      "model_confident": 1
+    },
+    "matched_flag_rate": 0.39869281045751637,
+    "both_flag": 0.14833333333333334,
+    "physics_only": 0.25,
+    "learned_only": 0.25,
+    "neither": 0.3516666666666667,
+    "spearman_margin_vs_uncertainty": 0.07053606713205782,
+    "spearman_physics_score_vs_uncertainty": -0.10254690021058188
+  },
+  "cells": [
+    {
+      "cell": "m0u0",
+      "population": 54,
+      "drawn": 10,
+      "sampling_weight": 5.4
+    },
+    {
+      "cell": "m0u1",
+      "population": 50,
+      "drawn": 10,
+      "sampling_weight": 5.0
+    },
+    {
+      "cell": "m0u2",
+      "population": 49,
+      "drawn": 10,
+      "sampling_weight": 4.9
+    },
+    {
+      "cell": "m1u0",
+      "population": 48,
+      "drawn": 10,
+      "sampling_weight": 4.8
+    },
+    {
+      "cell": "m1u1",
+      "population": 50,
+      "drawn": 10,
+      "sampling_weight": 5.0
+    },
+    {
+      "cell": "m1u2",
+      "population": 55,
+      "drawn": 10,
+      "sampling_weight": 5.5
+    },
+    {
+      "cell": "m2u0",
+      "population": 36,
+      "drawn": 10,
+      "sampling_weight": 3.6
+    },
+    {
+      "cell": "m2u1",
+      "population": 65,
+      "drawn": 10,
+      "sampling_weight": 6.5
+    },
+    {
+      "cell": "m2u2",
+      "population": 52,
+      "drawn": 10,
+      "sampling_weight": 5.2
+    },
+    {
+      "cell": "mAu0",
+      "population": 62,
+      "drawn": 10,
+      "sampling_weight": 6.2
+    },
+    {
+      "cell": "mAu1",
+      "population": 35,
+      "drawn": 10,
+      "sampling_weight": 3.5
+    },
+    {
+      "cell": "mAu2",
+      "population": 44,
+      "drawn": 10,
+      "sampling_weight": 4.4
+    }
+  ]
+}

@@ -78,6 +78,20 @@ No accuracy number in this repo has been produced by a real training run yet.
   `eval/adversarial_degradation.py`): params/MACs/CPU latency for every
   architecture, and a worst-of-N-query black-box degradation search that checks
   whether predicted uncertainty actually rises on the images it makes harder.
+- **Radiologist-agreement study, designed and powered** (`eval/reader_study.py`,
+  `scripts/reader_study.py`, `docs/READER_STUDY.md`): the second-reader framing
+  was the project's loudest unevidenced claim -- do the films the system flags
+  correspond to films a radiologist would actually refer? This is the instrument
+  that answers it: a balanced sample over the (physics margin x learned
+  uncertainty) grid with sampling weights that recover the corpus, blinded
+  photographs regenerated bit for bit from the capture seed, a pre-registered
+  weighted analysis with a falsification criterion committed in advance, and --
+  the part that needs no radiologist -- the reader-noise ceiling, because
+  readers agree with each other at ICC 0.4-0.6 and that caps what any model can
+  score. It already returned results: the two signals are near-orthogonal
+  (Spearman -0.10) so the study can separate them, and the deferral/triage
+  decisions are *constant* on the current test corpus, which has to be fixed
+  before any reader is booked.
 - **Physics-derived uncertainty** (`physics/`, `docs/PHYSICS.md`): a second,
   independent uncertainty track that *measures* the capture channel instead of
   learning it. Every chest film carries its own calibration targets — a lead L/R
@@ -136,6 +150,7 @@ of that track can claim, and it needs no model and no GPU:
 ```bash
 python scripts/audit_fiducials.py --manifest data/processed/manifest.csv --out outputs/fiducial_audit
 python scripts/validate_physics.py --quick     # the experiments that could falsify the bound
+python scripts/measure_fiducial_value.py --quick   # what a step wedge and a ruler buy
 python scripts/make_phantom_film.py           # the printable phantom, for real phone captures
 python scripts/validate_real_recapture.py --phantom outputs/phantom --dry-run
 ```
@@ -184,7 +199,8 @@ scripts/            download_data, build_manifest, clinic_stats, smoke_test,
                     evaluate_adversarial_robustness, ablate_degradation,
                     run_experiments, audit_fiducials, validate_physics,
                     physics_certificates, make_figures,
-                    make_phantom_film, validate_real_recapture
+                    make_phantom_film, validate_real_recapture,
+                    measure_fiducial_value
 src/tbtrust/
   data/             degradation pipeline, manifest + provenance, LOCO splits,
                     torch Dataset, per-clinic shift statistics

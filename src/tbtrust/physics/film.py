@@ -157,6 +157,99 @@ def add_fiducials(
     return d, truth
 
 
+def add_lightbox_aids(
+    density: np.ndarray,
+    film: FilmModel | None = None,
+    px_per_mm: float = 1.0,
+    pad_frac: float = 0.14,
+    wedge: bool = True,
+    ruler: bool = True,
+    wedge_mm: tuple[float, float] = (25.4, 127.0),
+    wedge_steps: int = 21,
+    wedge_base_od: float = 0.05,
+    wedge_step_od: float = 0.15,
+    tick_spacing_mm: float = 10.0,
+) -> tuple[np.ndarray, dict]:
+    """Pad the film with lightbox and tape the two checklist aids onto it.
+
+    `docs/DEPLOYMENT_CHECKLIST.md` B2 asks for a step wedge and a ruler beside the
+    film. This is their forward-model counterpart, so the value of asking can be
+    measured before anyone is asked -- `scripts/measure_fiducial_value.py`.
+
+    The padding is not decoration. The aids sit on the lightbox *outside the
+    sheet*, which in a density map means there has to be some lightbox to sit on;
+    without it they would have to be painted over the film's own clear margin,
+    which is one of the two anchors the density scale hangs from, and the
+    experiment would be measuring the damage rather than the benefit. That
+    contamination is real, though -- an operator will tape the wedge wherever it
+    fits -- which is why `aids.read_aids` returns a mask and `invert` subtracts it
+    from the base-fog anchor.
+
+    Returns the padded map and the truth dict: masks, the true tick pitch, and the
+    true px/mm, all of which the scoring needs and the estimator must not see.
+    """
+    film = film or FilmModel()
+    d = np.asarray(density, dtype=np.float64)
+    h, w = d.shape
+    pad = round(pad_frac * min(h, w))
+    # The pad is *bare lightbox*, not more film: outside the sheet there is
+    # nothing in the beam, so D = 0 and it is the brightest thing in the frame --
+    # about 1.6x brighter than the film's own base+fog margin at 0.2 OD. That
+    # difference is the whole reason `aids.margin_band` exists, and filling the
+    # pad with film instead would hide the problem the aids create.
+    out = np.zeros((h + 2 * pad, w + 2 * pad), dtype=np.float64)
+    out[pad:pad + h, pad:pad + w] = d
+    truth: dict = {"pad": pad, "px_per_mm": float(px_per_mm), "film_rect": (pad, pad, pad + h, pad + w)}
+
+    wedge_mask = np.zeros(out.shape, dtype=bool)
+    ruler_mask = np.zeros(out.shape, dtype=bool)
+
+    if wedge:
+        ww = max(4, round(wedge_mm[0] * px_per_mm))
+        wl = max(8, round(wedge_mm[1] * px_per_mm))
+        # Down the left margin, clear of the corners so it cannot be mistaken for
+        # part of the collimation border by anything downstream.
+        wl = min(wl, out.shape[0] - 2 * pad)
+        x0 = max(1, (pad - ww) // 2)
+        y0 = (out.shape[0] - wl) // 2
+        if ww < pad - 1 and wl > 8:
+            step_len = wl / wedge_steps
+            for i in range(wedge_steps):
+                a = y0 + round(i * step_len)
+                b = y0 + round((i + 1) * step_len)
+                # Taped to the lightbox beside the sheet, so it is lying on
+                # nothing and its own density is what the camera sees.
+                out[a:b, x0:x0 + ww] = wedge_base_od + wedge_step_od * i
+                wedge_mask[a:b, x0:x0 + ww] = True
+            truth["wedge_rect"] = (y0, x0, y0 + wl, x0 + ww)
+            truth["wedge_densities"] = [wedge_base_od + wedge_step_od * i for i in range(wedge_steps)]
+
+    if ruler:
+        pitch = tick_spacing_mm * px_per_mm
+        band_h = max(4, round(0.5 * pad))
+        y0 = out.shape[0] - pad + max(1, (pad - band_h) // 2)
+        body_d = 0.25                                  # a translucent ruler body
+        tick_d = 1.40                                  # printed ticks, near opaque
+        x_lo, x_hi = pad // 2, out.shape[1] - pad // 2
+        if pitch >= 4 and y0 + band_h < out.shape[0] and x_hi - x_lo > 4 * pitch:
+            out[y0:y0 + band_h, x_lo:x_hi] = body_d
+            ruler_mask[y0:y0 + band_h, x_lo:x_hi] = True
+            tw = max(1, round(0.12 * pitch))
+            x = float(x_lo) + pitch
+            n = 0
+            while x + tw < x_hi:
+                out[y0:y0 + band_h, int(x):int(x) + tw] = tick_d
+                x += pitch
+                n += 1
+            truth["ruler_rect"] = (y0, x_lo, y0 + band_h, x_hi)
+            truth["ruler_pitch_px"] = float(pitch)
+            truth["ruler_ticks"] = n
+
+    truth["wedge_mask"] = wedge_mask
+    truth["ruler_mask"] = ruler_mask
+    return out, truth
+
+
 # --------------------------------------------------------------------------- #
 # a synthetic radiograph, for tests and for the validation harness
 # --------------------------------------------------------------------------- #
