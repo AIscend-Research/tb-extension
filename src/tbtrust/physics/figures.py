@@ -905,6 +905,10 @@ def certificate_card(cert, cal, decision=None, figsize=(11.5, 6.2)):
             fontsize=9, weight="bold", color=INK)
     y = 0.715
     span = 30.0
+    # The bars own [0.42, 0.715] and the provenance block sits at fixed heights
+    # below them, so neither can drift into the action box at the bottom of the
+    # card no matter how many findings are listed.
+    step = min(0.072, (0.715 - 0.42) / max(len(cert.findings) - 1, 1))
     for fv in cert.findings:
         m = float(np.clip(fv.margin_db, -span, span))
         c = VERDICT_COLOR[fv.verdict.value]
@@ -918,11 +922,11 @@ def certificate_card(cert, cal, decision=None, figsize=(11.5, 6.2)):
         ax.text(0.487, y, f"{fv.margin_db:+.1f} dB", fontsize=8, color=c, va="center",
                 weight="bold")
         ax.text(0.548, y, f"floor {fv.floor_median:.3f}", fontsize=7.5, color=MUTED, va="center")
-        y -= 0.072
+        y -= step
 
     # provenance
     prov = cert.provenance
-    ax.text(0.04, y - 0.02, "How this was measured", fontsize=9, weight="bold", color=INK)
+    ax.text(0.04, 0.365, "How this was measured", fontsize=9, weight="bold", color=INK)
     lines = [
         f"fiducial coverage: {prov.get('coverage', '?')}",
         f"tone: {prov.get('tone_method', '?')}   ·   PSF: {prov.get('psf_method', '?')}"
@@ -932,7 +936,7 @@ def certificate_card(cert, cal, decision=None, figsize=(11.5, 6.2)):
         f"finding contrasts: {prov.get('contrast_source', '?')}",
     ]
     for i, ln in enumerate(lines):
-        ax.text(0.045, y - 0.06 - i * 0.036, ln, fontsize=7.4, color=MUTED)
+        ax.text(0.045, 0.325 - i * 0.034, ln, fontsize=7.4, color=MUTED)
 
     # The floor map as evidence, in its own column.
     if cert.floor_map is not None:
